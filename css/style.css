@@ -16,6 +16,137 @@
   --serif: Georgia,"Times New Roman",serif;
 }
 
+/* Недельный ритм: календарная полоса и заметка о сегодняшнем занятии. */
+.home-week {
+  margin: 0 0 38px;
+}
+.week-heading,.history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.week-heading h2,.history-heading h2 {
+  margin: 0;
+  font: 400 25px/1.3 var(--serif);
+}
+.home-week h2 span {
+  display: inline-block;
+  margin-left: 12px;
+  color: var(--muted);
+  font: 12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+.week-heading>a {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7,minmax(0,1fr));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.week-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 6px 10px;
+  color: var(--text);
+  background: var(--card);
+  border-right: 1px solid var(--line);
+}
+.week-day:last-child { border-right: 0; }
+.week-day:nth-child(n+6) { background: var(--accent-soft); }
+.week-day:hover { background: var(--bg); }
+.week-day:focus-visible { outline-offset: -4px; z-index: 1; }
+.day-name,.day-task { font-size: 11px; color: var(--muted); }
+.week-day>b { font: 400 26px/1.4 var(--serif); }
+.day-mark { height: 21px; color: var(--muted); font-size: 20px; line-height: 1; }
+.day-mark .icon { width: 17px; height: 17px; }
+.week-day.is-done .day-mark { color: var(--good); }
+.week-day.is-active .day-mark { color: var(--accent); font-weight: 700; }
+.week-day.is-missed .day-mark { opacity: .5; }
+.week-day.is-today::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent);
+}
+.week-day.is-selected { box-shadow: inset 0 0 0 2px var(--text); }
+.today-plan {
+  padding: 24px;
+  background: var(--card);
+  border-top: 2px solid var(--accent);
+}
+.today-plan .eyebrow { letter-spacing: .07em; margin-bottom: 10px; }
+.today-plan h3,.week-topics h3 {
+  margin: 0 0 16px;
+  font: 400 27px/1.2 var(--serif);
+}
+.today-plan p,.week-topics p { font-size: 13px; color: var(--muted); margin: 12px 0 18px; }
+.today-plan .btn { width: 100%; justify-content: center; }
+.plan-label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 600; }
+.today-plan select {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: var(--bg);
+  font-size: 13px;
+}
+.today-plan .plan-complete { display: flex; align-items: center; gap: 8px; color: var(--good); }
+.calendar-page>h1 { margin-bottom: 14px; }
+.calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 300px;
+  gap: 48px;
+  align-items: start;
+  margin-top: 34px;
+}
+.calendar-main,.calendar-aside { min-width: 0; }
+.week-controls { display: flex; align-items: center; gap: 2px; }
+.week-controls .btn { padding: 8px 12px; min-height: 44px; }
+.calendar-legend { display: flex; flex-wrap: wrap; gap: 10px 20px; margin: 12px 0 32px; color: var(--muted); font-size: 10px; }
+.calendar-legend span { display: inline-flex; gap: 5px; align-items: center; }
+.calendar-legend .icon { width: 14px; height: 14px; color: var(--good); }
+.calendar-legend b { color: var(--accent); font-size: 20px; line-height: .5; }
+.week-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); padding: 24px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); gap: 12px; }
+.week-stats div { display: flex; flex-direction: column; }
+.week-stats b { font: 400 35px/1.2 var(--serif); }
+.week-stats b small { margin-left: 5px; color: var(--muted); font-size: 17px; }
+.week-stats span { margin-top: 7px; font-size: 11px; color: var(--muted); }
+.stats-note,.history-note { color: var(--muted); font-size: 11px; }
+.day-history { margin-top: 36px; }
+.status-done { color: var(--good); font-size: 11px; }
+.activity-list { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); }
+.activity-list li { display: flex; justify-content: space-between; gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.activity-list li div { min-width: 0; }
+.activity-list b { display: block; font-size: 13px; font-weight: 500; }
+.activity-list span,.activity-list time { color: var(--muted); font-size: 11px; }
+.activity-list time { white-space: nowrap; }
+.history-empty { padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+.history-note { margin: 30px 0 0; }
+.week-topics { padding: 26px 0; margin-top: 26px; border-top: 1px solid var(--line); }
+.week-topics .eyebrow { font-size: 9px; letter-spacing: .07em; }
+.week-topics h3 { font-size: 23px; }
+.review-units { margin: 0 0 20px; }
+.review-units a { display: flex; align-items: baseline; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.review-units small { color: var(--accent); font-size: 11px; }
+.session-saved { font-size: 13px; color: var(--good); }
+.session-saved a { display: inline-block; margin-left: 5px; }
+
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #1c201d;
@@ -1420,6 +1551,7 @@ audio {
     min-height: 68px;
     gap: 16px;
   }
+  .logo span { display: none; }
   .top nav {
     gap: 18px;
   }
@@ -1528,7 +1660,34 @@ audio {
   }
 }
 
+@media(max-width:360px) {
+  .top .logo { display: none; }
+}
+
+@media(max-width:900px) {
+  .calendar-layout { grid-template-columns: minmax(0,1fr) 240px; gap: 24px; }
+}
+@media(max-width:740px) {
+  .calendar-layout { display: flex; flex-direction: column; gap: 28px; }
+  .calendar-main,.calendar-aside { width: 100%; }
+}
 @media(max-width:500px) {
+  .top nav { gap: 7px; }
+  .home-week { margin-bottom: 25px; }
+  .home-week h2 span { display: block; margin-left: 0; margin-top: 6px; }
+  .week-heading h2,.history-heading h2 { font-size: 22px; }
+  .week-day { padding: 12px 2px 8px; }
+  .week-day>b { font-size: 23px; }
+  .day-name,.day-task { font-size: 9px; }
+  .today-plan { padding: 20px; }
+  .today-plan h3 { font-size: 25px; }
+  .calendar-layout { display: flex; flex-direction: column; gap: 28px; }
+  .calendar-main,.calendar-aside { width: 100%; }
+  .calendar-aside .week-topics { margin-top: 22px; }
+  .week-stats { gap: 8px; }
+  .week-stats b { font-size: 27px; }
+  .week-stats span { font-size: 10px; }
+  .calendar-legend { gap: 8px 13px; }
   .top {
     padding: 0 16px;
     gap: 12px;
@@ -1544,7 +1703,7 @@ audio {
   .top nav {
     flex: 1;
     justify-content: space-between;
-    gap: 10px;
+    gap: 7px;
   }
   .top nav a {
     font-size: 12px;
