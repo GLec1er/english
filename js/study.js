@@ -26,10 +26,12 @@
     return events.filter((e) => {
       if (!e || typeof e.id !== 'string' || !e.id || seen.has(e.id) || !date(e.day)) return false;
       if (e.ts != null && (!Number.isFinite(e.ts) || !Number.isFinite(new Date(e.ts).getTime()))) return false;
-      if (!['unit', 'writing', 'practice', 'review'].includes(e.kind)) return false;
+      if (!['unit', 'writing', 'practice', 'review', 'step', 'claim'].includes(e.kind)) return false;
+      if (e.session != null && (typeof e.session !== 'string' || !e.session || e.session.length > 100)) return false;
       if (!Array.isArray(e.units) || e.units.some((n) => !Number.isInteger(n) || n < 1 || n > 145)) return false;
       if (!Number.isInteger(e.answers) || !Number.isInteger(e.correct) || e.answers < 0 || e.correct < 0 || e.correct > e.answers) return false;
-      if (['unit', 'writing'].includes(e.kind) && e.units.length !== 1) return false;
+      if (['unit', 'writing', 'step', 'claim'].includes(e.kind) && e.units.length !== 1) return false;
+      if (e.kind === 'step' && !['mc','fill','order','err','tr','lgap','dict','speak'].includes(e.mode)) return false;
       if (e.kind === 'review' && (!date(e.week) || weekStart(e.week) !== e.week)) return false;
       seen.add(e.id);
       return true;
@@ -37,16 +39,28 @@
   }
   function weekUnits(events, key) {
     const start = weekStart(key), friday = shift(start, 4);
-    return [...new Set(events.filter((e) => e.day >= start && e.day <= friday && ['unit', 'writing'].includes(e.kind)).flatMap((e) => e.units))].sort((a, b) => a - b);
+    return [...new Set(events.filter((e) => e.day >= start && e.day <= friday && ['unit', 'writing', 'step', 'claim'].includes(e.kind)).flatMap((e) => e.units))].sort((a, b) => a - b);
   }
   function summary(events, key) {
     const start = weekStart(key), end = shift(start, 6);
     const rows = events.filter((e) => e.day >= start && e.day <= end);
     const answers = rows.reduce((n, e) => n + e.answers, 0);
     const correct = rows.reduce((n, e) => n + e.correct, 0);
-    return { days: new Set(rows.map((e) => e.day)).size, sessions: rows.length, answers, correct,
+    return { days: new Set(rows.map((e) => e.day)).size, sessions: new Set(rows.filter((e) => e.kind !== 'claim').map((e) => e.day + ':' + (e.session || e.id))).size, answers, correct,
       accuracy: answers ? Math.round(correct / answers * 100) : null,
       units: new Set(rows.flatMap((e) => e.units)).size };
+  }
+  function approaches(events, key) {
+    const groups = new Map();
+    events.filter((e) => e.day === key).forEach((e) => {
+      const id = e.session || e.id;
+      if (!groups.has(id)) groups.set(id, { ...e, answers: 0, correct: 0, partial: true });
+      const row = groups.get(id);
+      row.answers += e.answers; row.correct += e.correct;
+      if (Number.isFinite(e.ts) && (!Number.isFinite(row.ts) || e.ts > row.ts)) row.ts = e.ts;
+      if (e.kind !== 'step') { row.partial = false; row.kind = e.kind; }
+    });
+    return [...groups.values()];
   }
   function dayStatus(events, key) {
     const rows = events.filter((e) => e.day === key);
@@ -68,7 +82,7 @@
     });
     return first.concat(rest.slice(0, Math.max(limit, first.length) - first.length));
   }
-  const api = { dateKey, date, shift, weekStart, weekDays, isWeekend, normalize, weekUnits, summary, dayStatus, reviewSelection };
+  const api = { dateKey, date, shift, weekStart, weekDays, isWeekend, normalize, weekUnits, summary, approaches, dayStatus, reviewSelection };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.EGIUStudy = api;
 })(typeof window === 'undefined' ? globalThis : window);

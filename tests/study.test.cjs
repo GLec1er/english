@@ -64,3 +64,27 @@ check('review selection excludes another mode of the same example and preserves 
   const a = { t: 'mc', ref: { u: 1, k: 'gap', i: 0 } }, duplicate = { t: 'fill', ref: { u: 1, k: 'gap', i: 0 } }, b = { t: 'err', ref: { u: 2, k: 'err', i: 0 } };
   assert.deepEqual(S.reviewSelection([a, duplicate, b]), [a, b]);
 });
+
+test('partial unit answers are normalized and included in weekly repetition', () => {
+  const rows=[{id:'step-1',session:'s1',day:'2026-10-12',kind:'step',units:[36],mode:'fill',answers:1,correct:0}];
+  const loaded=S.normalize(rows);
+  assert.equal(loaded.length,1);
+  assert.deepEqual(S.weekUnits(loaded,'2026-10-17'),[36]);
+});
+test('step answers and the completion marker form one approach without double counting', () => {
+  const rows=[{id:'s1a',session:'s1',day:'2026-10-12',kind:'step',units:[36],mode:'fill',answers:1,correct:0,title:'Unit 36 · Впиши форму'},
+    {id:'s1b',session:'s1',day:'2026-10-12',kind:'step',units:[36],mode:'fill',answers:1,correct:1,title:'Unit 36 · Впиши форму'},
+    {id:'done',session:'s1',day:'2026-10-12',kind:'unit',units:[36],mode:'fill',answers:0,correct:0,title:'Unit 36 · Впиши форму'}];
+  const stats=S.summary(rows,'2026-10-12');
+  assert.equal(stats.sessions,1);assert.equal(stats.answers,2);assert.equal(stats.correct,1);
+  assert.equal(S.approaches(rows,'2026-10-12').length,1);
+  assert.equal(S.approaches(rows,'2026-10-12')[0].partial,false);
+  assert.equal(S.approaches(rows.slice(0,2),'2026-10-12')[0].partial,true);
+});
+
+test('claiming a previously completed unit is an active day without an extra scored approach',()=>{
+  const rows=[{id:'claim',day:'2026-10-13',kind:'claim',units:[36],answers:0,correct:0}];
+  const loaded=S.normalize(rows);assert.equal(loaded.length,1);
+  const stats=S.summary(loaded,'2026-10-13');assert.equal(stats.days,1);assert.equal(stats.sessions,0);assert.equal(stats.answers,0);
+  assert.deepEqual(S.weekUnits(loaded,'2026-10-17'),[36]);
+});

@@ -1991,6 +1991,42 @@ audio {
   .day-stamp { width: 60px; height: 60px; font-size: 11px; }
   .reward-panel>div>b { font-size: 20px; }
 }
+.rank-caption,.rank-link { display: block; font-size: 11px; line-height: 1.6; }
+.rank-caption { color: var(--muted); margin-top: 3px; }
+.rank-link { color: var(--accent); }
+.rank-promoted { color: var(--accent)!important; }
+.completion-help,.session-note { font-size: 12px; color: var(--muted); }
+.completion-help { margin: 5px 0 22px; }
+.session-note { margin: -10px 0 24px; }
+.unit-completion { font-size: 17px; text-align: right; white-space: nowrap; }
+.unit-completion small { display: block; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.excard { min-height: 125px; }
+.excard .ico { grid-row: 1 / span 5; }
+.excard .ds { grid-row: 2; }
+.exercise-progress { grid-column: 2; grid-row: 3; display: flex; justify-content: space-between; gap: 8px; font-size: 11px; margin-top: 12px; }
+.exercise-progress b { font-weight: 500; color: var(--muted); }
+.exercise-progress>span { color: var(--accent); }
+.exercise-meter { grid-column: 2 / 4; grid-row: 4; height: 3px; margin-top: 9px; background: var(--line); }
+.exercise-meter i { display: block; height: 100%; background: var(--brass); }
+.exercise-accuracy { grid-column: 2 / 4; grid-row: 5; font-size: 10px; color: var(--muted); padding-top: 7px; }
+.excard .ex-arrow { grid-row: 3; align-self: end; margin-bottom: 1px; }
+.unit-goal .claim-unit { margin-top: 18px; }
+.rank-rules { font-size: 13px; color: var(--muted); margin: 22px 0 28px; }
+.rank-ladder { padding: 0; margin: 0 0 24px; list-style: none; border-top: 1px solid var(--line); }
+.rank-ladder li { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; align-items: center; gap: 16px; padding: 19px 16px; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; }
+.rank-index { font: 11px ui-monospace,monospace; color: var(--muted); }
+.rank-ladder li>div>b { display: block; font: 400 27px/1.25 var(--serif); }
+.rank-ladder li>div>span { color: var(--muted); font-size: 12px; }
+.rank-threshold { text-align: right; font-size: 13px; }
+.rank-threshold small { display: block; color: var(--muted); font-size: 10px; margin-top: 5px; }
+.rank-ladder .is-current { border-left-color: var(--accent); background: var(--accent-soft); }
+.rank-ladder .is-current .rank-threshold small { color: var(--accent); }
+@media(max-width:500px) {
+  .unit-completion { font-size: 14px; }
+  .rank-ladder li { grid-template-columns: 20px minmax(0,1fr) auto; gap: 10px; padding: 16px 10px; }
+  .rank-ladder li>div>b { font-size: 23px; }
+  .rank-threshold { font-size: 11px; }
+}
 @media(prefers-reduced-motion:reduce) {
   *,*::before,*::after {
     transition: none!important;

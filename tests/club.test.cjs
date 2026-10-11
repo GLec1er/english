@@ -83,3 +83,18 @@ check('an exported journal retains modes, goals and earned rewards after reload'
   assert.equal(result.streak, 7);
   assert.deepEqual(result.weeks, ['2026-10-12']);
 });
+
+check('a course day closes from its official claim, not one complete mode or background practice',()=>{
+  const club=config({'2026-10-12':goal(36)});
+  const rows=full('2026-10-12',36);
+  const course={since:'2026-10-12',closed:{}};
+  assert.equal(C.dayStatus(rows,'2026-10-12',club,course).done,false);
+  const closed={...course,closed:{'2026-10-12':36}};
+  assert.equal(C.dayStatus(rows,'2026-10-12',club,closed).done,true);
+  assert.equal(C.ledger(rows,club,'2026-10-12',closed).xp,60);
+});
+check('official closure of an already practiced unit awards one day bonus without new scored answers',()=>{
+  const course={since:'2026-10-12',closed:{'2026-10-13':36}};
+  assert.equal(C.ledger([],config(), '2026-10-13',course).xp,20);
+  assert.equal(C.ledger([],config(), '2026-10-13',course).streak,1);
+});
