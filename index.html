@@ -5,29 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Grammar in Use — тренажёр</title>
   <meta name="description" content="Упражнения по темам English Grammar in Use: грамматика, письмо, аудирование и произношение.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📘</text></svg>">
+  <meta name="theme-color" content="#f5f2eb">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='5' fill='%239c342b'/%3E%3Cpath d='M11 10h18v21H11zM16 10v21M20 16h5M20 21h5' fill='none' stroke='%23f5f2eb' stroke-width='2'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <a class="skip" href="#app">Перейти к содержимому</a>
   <header class="top">
-    <a class="logo" href="#/">📘 <span>Grammar in Use</span></a>
-    <nav>
+    <a class="logo" href="#/" aria-label="Grammar in Use — главная">
+      <svg class="brand-mark" viewBox="0 0 36 40" aria-hidden="true"><path d="M4 3h28v34H4zM11 3v34M17 12h9M17 18h9M17 24h6"/></svg>
+      <span>Grammar <i>in Use</i></span>
+    </a>
+    <nav aria-label="Основная навигация">
       <a href="#/" data-nav="home">Темы</a>
       <a href="#/mix" data-nav="mix">Микс</a>
       <a href="#/mistakes" data-nav="mistakes">Ошибки <span id="mcount" class="pill"></span></a>
       <a href="#/pron" data-nav="pron">Звуки</a>
-      <a href="#/settings" data-nav="settings" title="Настройки">⚙️</a>
+      <a href="#/settings" data-nav="settings" title="Настройки" aria-label="Настройки"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16M9 3v6M15 9v6M8 15v6"/></svg><span class="nav-settings">Настройки</span></a>
     </nav>
   </header>
 
-  <main id="app"></main>
+  <main id="app" tabindex="-1"></main>
 
   <footer class="foot">
-    Упражнения составлены по темам книги Raymond Murphy «English Grammar in Use» (Cambridge).
-    Прогресс хранится в этом браузере.
+    <span>По темам English Grammar in Use · Raymond Murphy</span>
+    <span>Прогресс сохраняется в этом браузере</span>
   </footer>
 
-  <div id="toast" class="toast" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="js/registry.js"></script>
   <script src="js/data/01-present-past.js"></script>

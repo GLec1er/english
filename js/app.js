@@ -8,6 +8,33 @@
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
   const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ESC[c]);
+  const ICONS = {
+    book: 'M4 3h16v18H4zM8 3v18M12 8h4M12 12h4',
+    check: 'M5 12l4 4L19 6',
+    mc: 'M4 4h16v16H4zM8 12l3 3 5-6',
+    fill: 'M4 20l4-1L20 7l-3-3L5 16zM14 7l3 3',
+    order: 'M4 6h10M4 12h16M4 18h12M17 3l3 3-3 3',
+    err: 'M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM15 15l6 6M7 10h6',
+    search: 'M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM15 15l6 6',
+    tr: 'M4 7h15l-3-3M20 17H5l3 3M19 7l-3 3M5 17l3-3',
+    write: 'M5 3h14v18H5zM9 8h6M9 12h6M9 16h4',
+    lgap: 'M12 3c-4 0-7 3-7 7M12 7c-2 0-3 2-3 4M12 3c4 0 7 3 7 7 0 4-4 5-5 8-1 4-6 4-7 0',
+    dict: 'M4 14v-3a8 8 0 0 1 16 0v3M4 12h3v7H4zM17 12h3v7h-3z',
+    speak: 'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0zM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',
+    arrow: 'M4 12h16M15 7l5 5-5 5',
+    chevron: 'M9 5l7 7-7 7',
+    close: 'M6 6l12 12M6 18L18 6',
+    play: 'M8 4l12 8-12 8z',
+    volume: 'M4 9h4l5-5v16l-5-5H4zM17 8a7 7 0 0 1 0 8M20 5a11 11 0 0 1 0 14',
+    slow: 'M5 14a7 7 0 0 1 14 0M5 14h14v5H5zM8 19v2M16 19v2M19 14h2',
+    save: 'M4 3h14l3 3v15H4zM8 3v6h9V3M8 21v-8h9v8',
+    upload: 'M12 16V3M7 8l5-5 5 5M4 15v6h16v-6',
+    mix: 'M4 5h3c5 0 5 14 10 14h3M16 15l4 4-4 3M4 19h3c2 0 3-2 4-4M13 9c1-2 2-4 4-4h3M16 2l4 3-4 4',
+  };
+  const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${ICONS[name] || ICONS.book}"/></svg>`;
+  const plurals = new Intl.PluralRules('ru');
+  const plural = (n, one, few, many) => ({ one, few, many })[plurals.select(n)] || many;
+  $('.skip').onclick = (e) => { e.preventDefault(); app.focus(); };
   const shuffle = (a) => {
     a = a.slice();
     for (let i = a.length - 1; i > 0; i--) {
@@ -34,9 +61,17 @@
     },
   };
 
-  const DEFAULTS = { accent: 'en-GB', voice: '', rate: 0.95, autoplay: true, mixCount: 15 };
+  const DEFAULTS = { accent: 'en-GB', voice: '', rate: 0.95, autoplay: true, mixCount: 15, theme: 'light' };
   const settings = Object.assign({}, DEFAULTS, Store.get('settings', {}));
   const saveSettings = () => Store.set('settings', settings);
+  const themeMedia = matchMedia('(prefers-color-scheme: dark)');
+  function applyTheme() {
+    const dark = settings.theme === 'dark' || (settings.theme === 'system' && themeMedia.matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    $('meta[name="theme-color"]').content = dark ? '#1c201d' : '#f5f2eb';
+  }
+  applyTheme();
+  themeMedia.addEventListener('change', applyTheme);
 
   const progress = Store.get('progress', {});
   const getProg = (key, t) => (progress[key] && progress[key][t]) || null;
@@ -184,15 +219,15 @@
   }
 
   const TYPES = {
-    mc: { name: 'Выбор ответа', icon: '☑️', group: 'g', kind: 'gap', desc: 'выберите правильную форму' },
-    fill: { name: 'Впиши форму', icon: '✏️', group: 'g', kind: 'gap', desc: 'напишите слово в нужной форме' },
-    order: { name: 'Порядок слов', icon: '🧩', group: 'g', kind: 'order', desc: 'соберите предложение' },
-    err: { name: 'Найди ошибку', icon: '🔍', group: 'g', kind: 'err', desc: 'исправьте предложение' },
-    tr: { name: 'Перефразируй', icon: '🔁', group: 'w', kind: 'tr', desc: 'напишите предложение по заданию' },
-    write: { name: 'Свободное письмо', icon: '📝', group: 'w', kind: 'write', desc: 'короткий текст на тему юнита' },
-    lgap: { name: 'Услышь и впиши', icon: '👂', group: 'l', kind: 'gap', desc: 'прослушайте и заполните пропуск' },
-    dict: { name: 'Диктант', icon: '🎧', group: 'l', kind: 'gap', desc: 'запишите предложение на слух' },
-    speak: { name: 'Произнеси', icon: '🎤', group: 'p', kind: 'gap', desc: 'повторите вслух — браузер проверит' },
+    mc: { name: 'Выбор ответа', icon: 'mc', group: 'g', kind: 'gap', desc: 'выбери правильную форму' },
+    fill: { name: 'Впиши форму', icon: 'fill', group: 'g', kind: 'gap', desc: 'напиши слово в нужной форме' },
+    order: { name: 'Порядок слов', icon: 'order', group: 'g', kind: 'order', desc: 'собери предложение' },
+    err: { name: 'Найди ошибку', icon: 'err', group: 'g', kind: 'err', desc: 'исправь предложение' },
+    tr: { name: 'Перефразируй', icon: 'tr', group: 'w', kind: 'tr', desc: 'напиши предложение по заданию' },
+    write: { name: 'Свободное письмо', icon: 'write', group: 'w', kind: 'write', desc: 'короткий текст на тему юнита' },
+    lgap: { name: 'Услышь и впиши', icon: 'lgap', group: 'l', kind: 'gap', desc: 'прослушай и заполни пропуск' },
+    dict: { name: 'Диктант', icon: 'dict', group: 'l', kind: 'gap', desc: 'запиши предложение на слух' },
+    speak: { name: 'Произнеси', icon: 'speak', group: 'p', kind: 'gap', desc: 'произнеси фразу и сравни слова' },
   };
   const GROUPS = { g: 'Грамматика', w: 'Письмо', l: 'Аудирование', p: 'Произношение' };
 
@@ -263,9 +298,8 @@
     if (busy) setTimeout(() => synth.speak(u), 60);
     else synth.speak(u);
   }
-  const audioBtns = () =>
-    '<div class="audio"><button class="btn play" type="button">▶ Слушать</button>' +
-    '<button class="btn play" type="button" data-rate="0.6">🐢 Медленно</button></div>';
+  const audioBtns = () => `<div class="audio"><button class="btn play" type="button">${icon('play')} Слушать</button>
+    <button class="btn play" type="button" data-rate="0.6">${icon('slow')} Медленно</button></div>`;
   function wireAudio(area, text) {
     $$('.play', area).forEach((b) => (b.onclick = () => speak(text, +b.dataset.rate || undefined)));
   }
@@ -294,7 +328,7 @@
     mc(area, g, finish) {
       const opts = shuffle([g.correct, ...g.wrong]);
       area.innerHTML = `<div class="task">Выберите правильный вариант</div>
-        <p class="sent">${esc(g.before)}<span class="gap">&nbsp;</span>${esc(g.after)}</p>
+        <p class="sent" lang="en">${esc(g.before)}<span class="gap">&nbsp;</span>${esc(g.after)}</p>
         <div class="opts">${opts.map((o, i) => `<button class="opt" type="button"><kbd>${i + 1}</kbd>${esc(showOpt(o))}</button>`).join('')}</div>`;
       const btns = $$('.opt', area);
       const choose = (i) => {
@@ -314,7 +348,7 @@
     fill(area, g, finish, listenMode) {
       area.innerHTML = `<div class="task">${listenMode ? 'Прослушайте и впишите пропущенные слова' : 'Впишите правильную форму'}</div>
         ${listenMode ? audioBtns() : ''}
-        <p class="sent">${esc(g.before)}<input class="gapin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">${!listenMode && g.hint ? `<span class="hint">(${esc(g.hint)})</span>` : ''}${esc(g.after)}</p>
+        <p class="sent" lang="en">${esc(g.before)}<input class="gapin" lang="en" aria-label="Пропущенные слова" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">${!listenMode && g.hint ? `<span class="hint">(${esc(g.hint)})</span>` : ''}${esc(g.after)}</p>
         ${listenMode ? '' : '<button class="btn link small showopts" type="button">Показать варианты</button><div class="optlist"></div>'}`;
       const inp = $('.gapin', area);
       inp.style.width = Math.max(6, Math.max(...g.answers.map((a) => a.length)) + 3) + 'ch';
@@ -339,7 +373,7 @@
 
     dict(area, g, finish) {
       area.innerHTML = `<div class="task">Прослушайте и запишите предложение полностью</div>${audioBtns()}
-        <textarea class="textin" rows="2" autocomplete="off" autocapitalize="sentences" spellcheck="false" placeholder="Пишите здесь…"></textarea>`;
+        <textarea class="textin" lang="en" aria-label="Ответ на английском" rows="2" autocomplete="off" autocapitalize="sentences" spellcheck="false" placeholder="Пишите здесь…"></textarea>`;
       wireAudio(area, g.full);
       speak(g.full);
       const ta = $('textarea', area);
@@ -386,8 +420,8 @@
 
     err(area, e, finish) {
       area.innerHTML = `<div class="task">В предложении есть ошибка. Исправьте его.</div>
-        <p class="sent wrongsent">${esc(e.q)}</p>
-        <textarea class="textin" rows="2" autocomplete="off" spellcheck="false"></textarea>`;
+        <p class="sent wrongsent" lang="en">${esc(e.q)}</p>
+        <textarea class="textin" lang="en" aria-label="Ответ на английском" rows="2" autocomplete="off" spellcheck="false"></textarea>`;
       const ta = $('textarea', area);
       ta.value = e.q;
       return {
@@ -401,8 +435,8 @@
 
     tr(area, t, finish) {
       area.innerHTML = `<div class="task">Напишите предложение по заданию</div>
-        <p class="sent">${esc(t.q)}</p>
-        <textarea class="textin" rows="2" autocomplete="off" spellcheck="false" placeholder="Ваш вариант…"></textarea>`;
+        <p class="sent" lang="en">${esc(t.q)}</p>
+        <textarea class="textin" lang="en" aria-label="Ответ на английском" rows="2" autocomplete="off" spellcheck="false" placeholder="Ваш вариант…"></textarea>`;
       const ta = $('textarea', area);
       return {
         check() {
@@ -418,11 +452,11 @@
       const text = d.full;
       let best = 0;
       area.innerHTML = `<div class="task">Прослушайте и произнесите вслух</div>
-        <p class="sent big">${esc(text)}</p>
+        <p class="sent big" lang="en">${esc(text)}</p>
         <div class="audio">
-          <button class="btn play" type="button">▶ Слушать</button>
-          <button class="btn play" type="button" data-rate="0.6">🐢 Медленно</button>
-          ${SR ? '<button class="btn mic" type="button">🎤 Говорить</button>' : '<button class="btn rec" type="button">⏺ Записать себя</button>'}
+          <button class="btn play" type="button">${icon('play')} Слушать</button>
+          <button class="btn play" type="button" data-rate="0.6">${icon('slow')} Медленно</button>
+          ${SR ? `<button class="btn mic" type="button">${icon('speak')} Говорить</button>` : `<button class="btn rec" type="button">${icon('speak')} Записать себя</button>`}
         </div>
         <div class="srres"></div>`;
       wireAudio(area, text);
@@ -443,16 +477,16 @@
             res.innerHTML = `<div class="said">Распознано: «${esc(top.a)}»</div>
               <div class="diff">${top.d.html}</div>
               <div class="meter"><i style="width:${pct}%"></i></div>
-              <div class="pct">${pct}% ${pct >= 90 ? '🌟 Отлично!' : pct >= 70 ? '👍 Хорошо' : '— попробуйте ещё раз (красные слова)'}</div>`;
+              <div class="pct">${pct}% ${pct >= 90 ? '— слова совпали' : pct >= 70 ? '— большая часть слов совпала' : '— попробуйте ещё раз (красные слова)'}</div>`;
           }, (on) => {
             mic.classList.toggle('on', on);
-            mic.textContent = on ? '⏹ Слушаю…' : '🎤 Говорить';
+            mic.innerHTML = on ? `${icon('close')} Слушаю…` : `${icon('speak')} Говорить`;
           });
         };
         return { check: () => finish({ ok: best >= 0.8, score: best, note: `лучший результат: ${Math.round(best * 100)}%`, say: null }), label: 'Готово' };
       }
       // нет распознавания речи: записываем себя и сравниваем на слух
-      res.innerHTML = '<p class="muted small">Браузер не умеет распознавать речь (лучше всего работает Chrome). Запишите себя, сравните с образцом и оцените сами.</p><div class="recout"></div><div class="selfrate"><button class="btn good" type="button">👍 Похоже</button><button class="btn bad" type="button">🔁 Нужно ещё</button></div>';
+      res.innerHTML = '<p class="muted small">Браузер не умеет распознавать речь (лучше всего работает Chrome). Запишите себя, сравните с образцом и оцените сами.</p><div class="recout"></div><div class="selfrate"><button class="btn good" type="button">Похоже</button><button class="btn bad" type="button">Нужно ещё</button></div>';
       wireRecorder($('.rec', area), $('.recout', area));
       $('.selfrate .good', area).onclick = () => finish({ ok: true });
       $('.selfrate .bad', area).onclick = () => finish({ ok: false, say: null });
@@ -461,7 +495,7 @@
 
     snd(area, d, finish) {
       area.innerHTML = `<div class="task">${esc(d.task)}</div>
-        <p class="sent big">${esc(d.word)} <button class="btn small play" type="button">🔊</button></p>
+        <p class="sent big" lang="en">${esc(d.word)} <button class="btn small play" type="button" aria-label="Послушать слово">${icon('volume')}</button></p>
         <div class="opts row">${d.cats.map((c, i) => `<button class="opt" type="button"><kbd>${i + 1}</kbd>${esc(c[1])}</button>`).join('')}</div>`;
       wireAudio(area, d.word);
       speak(d.word);
@@ -512,11 +546,11 @@
           const url = URL.createObjectURL(new Blob(chunks, { type: rec.mimeType }));
           out.innerHTML = `<audio controls src="${url}"></audio>`;
           rec = null;
-          btn.textContent = '⏺ Записать ещё раз';
+          btn.textContent = 'Записать ещё раз';
           btn.classList.remove('on');
         };
         rec.start();
-        btn.textContent = '⏹ Стоп';
+        btn.textContent = 'Стоп';
         btn.classList.add('on');
       } catch (e) {
         toast('Нет доступа к микрофону');
@@ -533,11 +567,11 @@
     const res = [];
     app.innerHTML = `<div class="session">
       <div class="sess-top">
-        <button class="btn ghost quit" type="button" title="Выйти">✕</button>
-        <div class="bar"><i></i></div><span class="count"></span>
+        <button class="btn ghost quit" type="button" aria-label="Вернуться к выбору упражнений" title="Выйти">${icon('close')}</button>
+        <div class="bar" role="progressbar" aria-label="Прогресс занятия" aria-valuemin="0" aria-valuemax="${items.length}" aria-valuenow="0"><i></i></div><span class="count" aria-live="polite"></span>
       </div>
-      <div class="sess-title">${esc(title)}</div>
-      <div class="card ex"><div class="area"></div><div class="fb"></div>
+      <h1 class="sess-title">${esc(title)}</h1>
+      <div class="card ex"><div class="area"></div><div class="fb" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="actions"><button class="btn primary main" type="button"></button></div>
       </div></div>`;
     const area = $('.area'), fb = $('.fb'), btn = $('.main'), bar = $('.bar i'), count = $('.count');
@@ -547,8 +581,9 @@
       answered = false;
       fb.className = 'fb';
       fb.innerHTML = '';
-      count.textContent = `${pos + 1} / ${items.length}`;
+      count.textContent = `${pos + 1} из ${items.length}`;
       bar.style.width = (pos / items.length) * 100 + '%';
+      $('.sess-top .bar').setAttribute('aria-valuenow', pos);
       area.innerHTML = '';
       ctl = R[items[pos].t](area, items[pos].data, finish) || {};
       btn.style.display = ctl.check ? '' : 'none';
@@ -568,10 +603,10 @@
       if (it.ref) (r.ok ? removeMistake : addMistake)(it.ref);
       const draw = () => {
         fb.className = 'fb ' + (r.ok ? 'good' : 'bad');
-        fb.innerHTML = `<div class="verdict">${r.ok ? '✅ Верно!' : '❌ Не совсем'}${r.note ? ` <small>(${esc(r.note)})</small>` : ''}</div>
+        fb.innerHTML = `<div class="verdict">${icon(r.ok ? 'check' : 'close')}${r.ok ? 'Верно' : 'Нужно поправить'}${r.note ? ` <small>(${esc(r.note)})</small>` : ''}</div>
           ${r.correct ? `<div class="answer">${r.ok ? '' : '<span class="lbl">Правильно:</span> '}${r.correct}</div>` : ''}
           <div class="fb-actions">
-            ${r.say ? '<button class="btn small say" type="button">🔊 Послушать</button>' : ''}
+            ${r.say ? `<button class="btn small say" type="button">${icon('volume')} Послушать</button>` : ''}
             ${!r.ok && r.override ? '<button class="btn small link ovr" type="button">Мой ответ тоже верный</button>' : ''}
           </div>`;
         const s = $('.say', fb);
@@ -602,10 +637,11 @@
     function end() {
       keyHandler = null;
       bar.style.width = '100%';
+      $('.sess-top .bar').setAttribute('aria-valuenow', items.length);
       const pct = Math.round((res.reduce((s, r) => s + r.score, 0) / res.length) * 100);
       if (onDone) onDone(pct);
       const wrong = res.filter((r) => !r.ok);
-      const msg = pct >= 90 ? '🏆 Превосходно!' : pct >= 70 ? '👍 Хороший результат' : pct >= 50 ? '💪 Неплохо, но стоит повторить' : '📖 Перечитайте правило и попробуйте снова';
+      const msg = pct >= 90 ? 'Хороший результат. Можно перейти к следующему упражнению.' : pct >= 70 ? 'Хороший результат. Осталось разобрать ошибки.' : pct >= 50 ? 'Есть над чем поработать. Повтори сложные задания.' : 'Вернись к правилу в книге и попробуй ещё раз.';
       $('.ex').innerHTML = `<div class="summary">
         <div class="bigpct">${pct}%</div><p>${msg}</p>
         ${wrong.length ? `<h3>Ошибки (${wrong.length})</h3><ul class="wronglist">${wrong.map((r) => `<li>${r.correct || esc(r.item.data.full || '')}${r.user ? `<div class="muted small">ваш ответ: ${esc(r.user)}</div>` : ''}</li>`).join('')}</ul>` : ''}
@@ -642,46 +678,84 @@
 
   function unitRow(u) {
     const pct = unitPct(u);
+    const hasProgress = unitTypes(u).some((t) => getProg(u.n, t));
     return `<a class="urow" href="#/u/${u.n}">
-      <span class="unum">${u.n}</span><span class="utitle">${esc(u.title)}</span>
-      ${book[u.n] ? '<span class="bk" title="Выполнен в книге">📗</span>' : ''}
-      <span class="upct">${pct ? pct + '%' : ''}</span>${bar(pct)}</a>`;
+      <span class="unum">${String(u.n).padStart(2, '0')}</span><span class="utitle" lang="en">${esc(u.title)}</span>
+      ${book[u.n] ? `<span class="bk" role="img" aria-label="Пройдено в книге" title="Пройдено в книге">${icon('check')}</span>` : ''}
+      ${hasProgress ? `<span class="upct" title="Средний лучший результат по режимам">${pct}%</span>` : ''}${bar(pct)}</a>`;
   }
 
   function home() {
     const last = D.units[Store.get('last', 0)];
-    const started = D.list.filter((u) => unitPct(u) > 0).length;
+    const current = last || D.list[0];
+    const started = D.list.filter((u) => unitTypes(u).some((t) => getProg(u.n, t))).length;
     const inBook = D.list.filter((u) => book[u.n]).length;
+    let filter = Store.get('homeFilter', 'all') === 'book' ? 'book' : 'all';
     app.innerHTML = `
-      <section class="hero card">
-        <h1>Тренажёр по English Grammar in Use</h1>
-        <p>Все ${D.list.length} юнитов книги Raymond Murphy. Для каждой темы — задания на грамматику, письмо, аудирование и произношение.</p>
-        <div class="stats">
-          <div><b>${started}</b><span>юнитов начато</span></div>
-          <div><b>${inBook}</b><span>отмечено в книге</span></div>
-          <div><b>${mistakes.length}</b><span>ошибок на повтор</span></div>
+      <section class="hero" aria-labelledby="home-title">
+        <div><span class="eyebrow">English Grammar in Use / личная практика</span>
+          <h1 id="home-title">После книги —<br><em>практика.</em></h1>
+          <p>Пройди юнит у Мёрфи, затем закрепи его здесь.<br>Выбери упражнение и возвращайся к сложным местам.</p></div>
+        <div class="stats" aria-label="Твой прогресс">
+          <div><b>${inBook}<span class="sr-only"> из ${D.list.length}</span></b><span>пройдено в книге</span></div>
+          <div><b>${started}</b><span>${plural(started, 'юнит', 'юнита', 'юнитов')} с результатом</span></div>
+          <div><b>${mistakes.length}</b><span>${plural(mistakes.length, 'ошибка', 'ошибки', 'ошибок')} на повтор</span></div>
         </div>
-        ${last ? `<a class="btn primary" href="#/u/${last.n}">Продолжить: Unit ${last.n} →</a>` : ''}
       </section>
-      <input class="search" type="search" placeholder="Поиск: номер юнита или тема (например, 12 или passive)">
-      <div class="sections"></div>`;
-    const box = $('.sections');
-    const drawSections = () => {
-      box.innerHTML = D.sections.map((s) => {
-        const pct = Math.round(s.units.reduce((a, u) => a + unitPct(u), 0) / s.units.length);
-        const open = last && last.section === s;
-        return `<details class="sec card"${open ? ' open' : ''}>
-          <summary><span class="sec-t">${esc(s.en)}<small>${esc(s.ru)} · юниты ${s.units[0].n}–${s.units[s.units.length - 1].n}</small></span><span class="upct">${pct ? pct + '%' : ''}</span></summary>
-          <div class="ulist">${s.units.map(unitRow).join('')}</div></details>`;
+      <div class="study-layout">
+        <section class="study-library" aria-labelledby="library-title">
+          <div class="library-head"><h2 id="library-title">Оглавление</h2>
+            <div class="filters" role="group" aria-label="Показать юниты">
+              <button class="filter" type="button" data-filter="all">Все ${D.list.length}</button>
+              <button class="filter" type="button" data-filter="book">Пройдено в книге · ${inBook}</button>
+            </div>
+          </div>
+          <label class="search-label" for="unit-search">Найти юнит или тему</label>
+          <div class="search-wrap">${icon('search')}<input id="unit-search" class="search" type="search" placeholder="Например, 12 или present perfect" autocomplete="off"></div>
+          <p class="results-note" role="status" aria-live="polite"></p>
+          <div class="sections"></div>
+        </section>
+        <aside class="study-aside" aria-label="Текущее занятие">
+          <div class="continue-block"><span class="eyebrow">${last ? 'Вернуться к юниту' : 'Первое занятие'}</span>
+            <div class="continue-unit"><small>UNIT</small>${String(current.n).padStart(2, '0')}</div>
+            <h3 lang="en">${esc(current.title)}</h3>
+            <p>${last ? `Unit ${current.n} · ${esc(current.section.ru)}` : 'Начни с первого юнита или найди тот, который уже прошёл в книге.'}</p>
+            <a class="btn primary" href="#/u/${current.n}">${last ? 'Продолжить' : 'Начать'} ${icon('arrow')}</a>
+          </div>
+          <p class="aside-note">Отмечай пройденные юниты на их страницах — так их будет проще повторять в миксе.</p>
+          <a class="aside-link" href="#/mix">${icon('mix')}<span>Повторить пройденное</span>${icon('arrow')}</a>
+          <a class="aside-link" href="#/mistakes">${icon('tr')}<span>Разобрать ошибки</span><small>${mistakes.length}</small></a>
+        </aside>
+      </div>`;
+    const box = $('.sections'), search = $('.search'), note = $('.results-note');
+    function drawSections() {
+      const q = search.value.trim().toLowerCase();
+      $$('.filter').forEach((b) => {
+        const active = b.dataset.filter === filter;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-pressed', String(active));
+      });
+      const matches = (u) => (!q || String(u.n) === q || u.title.toLowerCase().includes(q) || u.section.en.toLowerCase().includes(q) || u.section.ru.toLowerCase().includes(q)) && (filter !== 'book' || book[u.n]);
+      const hits = D.list.filter(matches);
+      note.textContent = q ? `Найдено юнитов: ${hits.length}` : filter === 'book' ? `Пройдено в книге: ${hits.length} из ${D.list.length}` : `${D.sections.length} разделов · ${D.list.length} юнитов`;
+      if (!hits.length) {
+        box.innerHTML = `<div class="empty"><h3>${q ? 'Ничего не найдено' : 'Пока нет отметок'}</h3><p>${q ? 'Попробуй номер юнита, английское название или другую тему.' : 'Открой пройденный юнит и поставь отметку «Пройдено в книге». Он появится здесь.'}</p></div>`;
+        return;
+      }
+      if (q) { box.innerHTML = `<div class="ulist search-results">${hits.map(unitRow).join('')}</div>`; return; }
+      box.innerHTML = D.sections.map((section, i) => {
+        const units = section.units.filter(matches);
+        if (!units.length) return '';
+        const open = filter === 'book' || (last ? last.section === section : i === 0);
+        return `<details class="sec"${open ? ' open' : ''}>
+          <summary><span class="sec-index">${String(i + 1).padStart(2, '0')}</span><span class="sec-t"><span lang="en">${esc(section.en)}</span><small>${esc(section.ru)}</small></span>
+            <span class="sec-range" aria-label="Юниты ${section.units[0].n}–${section.units[section.units.length - 1].n}">${String(section.units[0].n).padStart(2, '0')}–${String(section.units[section.units.length - 1].n).padStart(2, '0')}</span>${icon('chevron')}</summary>
+          <div class="ulist">${units.map(unitRow).join('')}</div></details>`;
       }).join('');
-    };
+    }
+    search.oninput = drawSections;
+    $$('.filter').forEach((b) => { b.onclick = () => { filter = b.dataset.filter; Store.set('homeFilter', filter); drawSections(); }; });
     drawSections();
-    $('.search').oninput = (e) => {
-      const q = e.target.value.trim().toLowerCase();
-      if (!q) return drawSections();
-      const hits = D.list.filter((u) => String(u.n) === q || u.title.toLowerCase().includes(q) || u.section.en.toLowerCase().includes(q) || u.section.ru.toLowerCase().includes(q));
-      box.innerHTML = `<div class="card ulist">${hits.map(unitRow).join('') || '<p class="muted">Ничего не найдено</p>'}</div>`;
-    };
   }
 
   function unitPage(u) {
@@ -690,23 +764,31 @@
     const prev = D.units[u.n - 1], next = D.units[u.n + 1];
     const groups = {};
     unitTypes(u).forEach((t) => (groups[TYPES[t].group] = groups[TYPES[t].group] || []).push(t));
+    const hasProgress = unitTypes(u).some((t) => getProg(u.n, t));
     app.innerHTML = `
-      <div class="crumbs"><a href="#/">Темы</a> › ${esc(u.section.en)}</div>
-      <h1 class="utitle-h"><span class="unum big">Unit ${u.n}</span>${esc(u.title)}</h1>
-      ${u.tip ? `<div class="tip card">💡 ${esc(u.tip)}</div>` : ''}
-      <label class="bookdone"><input type="checkbox"${book[u.n] ? ' checked' : ''}> Юнит в книге выполнен</label>
-      ${Object.keys(GROUPS).filter((g) => groups[g]).map((g) => `
-        <h3 class="grp">${GROUPS[g]}</h3>
-        <div class="grid">${groups[g].map((t) => {
-          const p = getProg(u.n, t);
-          const n = available(u, t);
-          return `<a class="excard card" href="#/u/${u.n}/${t}">
-            <span class="ico">${TYPES[t].icon}</span>
-            <span class="nm">${TYPES[t].name}</span>
-            <span class="ds">${TYPES[t].desc}${t === 'write' ? '' : ` · ${n}`}</span>
-            ${p ? `<span class="sc ${p.best >= 80 ? 'hi' : ''}">${t === 'write' ? '✓' : p.best + '%'}</span>` : ''}
-          </a>`;
-        }).join('')}</div>`).join('')}
+      <div class="crumbs"><a href="#/">Оглавление</a> / <span lang="en">${esc(u.section.en)}</span></div>
+      <div class="unit-heading"><span class="unit-number"><small>UNIT</small>${String(u.n).padStart(2, '0')}</span><h1 lang="en">${esc(u.title)}</h1></div>
+      <div class="unit-layout">
+        <aside class="unit-annotation" aria-label="Правило и отметка книги">
+          ${u.tip ? `<div class="tip"><span class="eyebrow">Коротко о правиле</span>${esc(u.tip)}</div>` : ''}
+          <label class="bookdone"><input type="checkbox"${book[u.n] ? ' checked' : ''}> Пройдено в книге</label>
+          <p class="muted small">Сначала прочитай правило и сделай задания в книге. Здесь — дополнительная практика.</p>
+        </aside>
+        <section class="unit-practice" aria-labelledby="practice-title">
+          <div class="practice-head"><h2 id="practice-title">Закрепить тему</h2><span class="muted small">${hasProgress ? `Средний лучший результат: ${unitPct(u)}%` : 'Выбери упражнение'}</span></div>
+          ${Object.keys(GROUPS).filter((g) => groups[g]).map((g) => `
+            <h3 class="grp">${GROUPS[g]}</h3>
+            <div class="grid">${groups[g].map((t) => {
+              const p = getProg(u.n, t), n = available(u, t);
+              return `<a class="excard" href="#/u/${u.n}/${t}">
+                <span class="ico">${icon(TYPES[t].icon)}</span><span class="nm">${TYPES[t].name}</span>
+                <span class="ds">${TYPES[t].desc}${t === 'write' ? '' : ` · ${n} ${plural(n, 'задание', 'задания', 'заданий')}`}</span>
+                ${p ? `<span class="sc ${p.best >= 80 ? 'hi' : ''}" title="Лучший результат">${t === 'write' ? '✓' : p.best + '%'}</span>` : ''}
+                ${icon('arrow').replace('class="icon"', 'class="icon ex-arrow"')}
+              </a>`;
+            }).join('')}</div>`).join('')}
+        </section>
+      </div>
       <div class="unav">
         ${prev ? `<a class="btn ghost" href="#/u/${prev.n}">← Unit ${prev.n}</a>` : '<span></span>'}
         ${next ? `<a class="btn ghost" href="#/u/${next.n}">Unit ${next.n} →</a>` : ''}
@@ -733,28 +815,28 @@
   function writePage(u) {
     const [task, model] = u.w;
     const key = 'write:' + u.n;
-    app.innerHTML = `
+    app.innerHTML = `<div class="page-narrow">
       <div class="crumbs"><a href="#/">Темы</a> › <a href="#/u/${u.n}">Unit ${u.n}</a></div>
-      <h1>📝 Свободное письмо</h1>
+      <span class="eyebrow">Unit ${u.n} / письмо</span><h1>Свободное письмо</h1>
       <div class="card">
         <p class="task">${esc(task)}</p>
         ${u.tip ? `<p class="muted small">Правило: ${esc(u.tip)}</p>` : ''}
-        <textarea class="essay" rows="9" spellcheck="true" lang="en" placeholder="Write here…"></textarea>
+        <textarea class="essay" aria-label="Текст на английском" rows="9" spellcheck="true" lang="en" placeholder="Write here…"></textarea>
         <div class="wbar"><span class="wc"></span>
-          <button class="btn small listen-me" type="button">🔊 Прочитать мой текст</button>
+          <button class="btn small listen-me" type="button">${icon('volume')} Прочитать мой текст</button>
           <button class="btn small show-model" type="button">Показать пример</button>
         </div>
         <div class="model" hidden><b>Пример:</b> ${esc(model || '')}
-          <div><button class="btn small say-model" type="button">🔊</button></div></div>
+          <div><button class="btn small say-model" type="button">${icon('volume')} Послушать пример</button></div></div>
         <details class="check"><summary>Проверь себя</summary><ul>
           <li>В каждом предложении есть подлежащее и сказуемое?</li>
           <li>Ты использовал(а) грамматику этого юнита хотя бы 3–4 раза?</li>
           <li>Формы глаголов согласованы со временем (вчера → past, сейчас → present…)?</li>
-          <li>Прослушай свой текст (кнопка 🔊) — где звучит странно, там часто ошибка.</li>
+          <li>Прослушай свой текст — где звучит странно, там часто ошибка.</li>
         </ul></details>
-        <div class="actions"><button class="btn primary done" type="button">Готово ✓</button>
+        <div class="actions"><button class="btn primary done" type="button">Готово</button>
           <a class="btn ghost" href="#/u/${u.n}">Назад</a></div>
-      </div>`;
+      </div></div>`;
     const ta = $('.essay');
     ta.value = Store.get(key, '');
     const wc = () => ($('.wc').textContent = `слов: ${(ta.value.match(/[A-Za-z']+/g) || []).length}`);
@@ -766,7 +848,7 @@
     $('.done').onclick = () => {
       if ((ta.value.match(/[A-Za-z']+/g) || []).length < 15) { toast('Напишите хотя бы 15 слов'); return; }
       saveProg(u.n, 'write', 100);
-      toast('Сохранено ✓');
+      toast('Сохранено');
       go('#/u/' + u.n);
     };
   }
@@ -775,18 +857,18 @@
     const bookUnits = D.list.filter((u) => book[u.n]);
     const mixTypes = ['mc', 'fill', 'order', 'err', 'tr', 'lgap', 'dict', 'speak'];
     const sel = Store.get('mixTypes', ['mc', 'fill']);
-    app.innerHTML = `
-      <h1>🎲 Смешанная практика</h1>
-      <p class="muted">Случайные задания из выбранных тем — хороший способ повторения.</p>
+    app.innerHTML = `<div class="page-narrow">
+      <span class="eyebrow">Повторение / практика</span><h1>Смешанная практика</h1>
+      <p class="page-intro">Случайные задания из выбранных тем — хороший способ повторения.</p>
       <div class="card form">
-        <label class="row"><input type="checkbox" class="onlybook"${bookUnits.length ? ' checked' : ' disabled'}> Только юниты, отмеченные «выполнен в книге» (${bookUnits.length})</label>
-        <h3>Разделы <button class="btn link small all" type="button">все</button> <button class="btn link small none" type="button">ни одного</button></h3>
+        <label class="row"><input type="checkbox" class="onlybook"${bookUnits.length ? ' checked' : ' disabled'}> Только юниты, отмеченные «Пройдено в книге» (${bookUnits.length})</label>
+        <h2>Разделы <button class="btn link small all" type="button">все</button> <button class="btn link small none" type="button">ни одного</button></h2>
         <div class="checks secs">${D.sections.map((s, i) => `<label><input type="checkbox" value="${i}" checked> ${esc(s.en)}</label>`).join('')}</div>
-        <h3>Типы заданий</h3>
-        <div class="checks types">${mixTypes.map((t) => `<label><input type="checkbox" value="${t}"${sel.includes(t) ? ' checked' : ''}> ${TYPES[t].icon} ${TYPES[t].name}</label>`).join('')}</div>
+        <h2>Типы заданий</h2>
+        <div class="checks types">${mixTypes.map((t) => `<label><input type="checkbox" value="${t}"${sel.includes(t) ? ' checked' : ''}> ${icon(TYPES[t].icon)} ${TYPES[t].name}</label>`).join('')}</div>
         <label class="row">Количество заданий: <input type="number" class="cnt" min="5" max="60" value="${settings.mixCount}"></label>
         <div class="actions"><button class="btn primary start" type="button">Начать</button></div>
-      </div>`;
+      </div></div>`;
     $('.all').onclick = () => $$('.secs input').forEach((c) => (c.checked = true));
     $('.none').onclick = () => $$('.secs input').forEach((c) => (c.checked = false));
     $('.start').onclick = () => {
@@ -825,15 +907,15 @@
     const items = mistakeItems();
     const byUnit = {};
     mistakes.forEach((r) => (byUnit[r.u] = (byUnit[r.u] || 0) + 1));
-    app.innerHTML = `
-      <h1>🔁 Работа над ошибками</h1>
+    app.innerHTML = `<div class="page-narrow">
+      <span class="eyebrow">Повторение / сложные места</span><h1>Работа над ошибками</h1>
       <div class="card">
         ${items.length ? `<p>Заданий на повторение: <b>${items.length}</b>. Задание исчезает из списка, когда вы ответите на него правильно.</p>
           <div class="chips">${Object.keys(byUnit).sort((a, b) => a - b).map((n) => `<a class="chip" href="#/u/${n}">Unit ${n} · ${byUnit[n]}</a>`).join('')}</div>
           <div class="actions"><button class="btn primary start" type="button">Повторить (до 20)</button>
           <button class="btn ghost clear" type="button">Очистить список</button></div>`
-        : '<p>Ошибок нет 🎉 Здесь будут собираться задания, в которых вы ошиблись.</p>'}
-      </div>`;
+        : `<div class="empty"><h2>Пока без ошибок</h2><p>Здесь появятся задания, которые стоит повторить. После правильного ответа они уйдут из списка.</p><a class="btn" href="#/">Выбрать юнит ${icon('arrow')}</a></div>`}
+      </div></div>`;
     if (!items.length) return;
     $('.start').onclick = () => session({ title: 'Работа над ошибками', back: '#/mistakes', items: shuffle(items).slice(0, 20) });
     $('.clear').onclick = () => {
@@ -848,13 +930,13 @@
   function labPage() {
     const L = D.lab;
     app.innerHTML = `
-      <h1>🔊 Звуки и произношение</h1>
-      <p class="muted">Темы произношения, которые чаще всего связаны с грамматикой: окончания, сокращения, слабые формы.</p>
+      <span class="eyebrow">Аудирование / произношение</span><h1>Звуки и произношение</h1>
+      <p class="page-intro">Темы произношения, которые чаще всего связаны с грамматикой: окончания, сокращения, слабые формы.</p>
       <div class="grid">${Object.keys(L).map((k) => {
         const p = getProg('lab', k);
-        return `<a class="excard card" href="#/pron/${k}"><span class="ico">${L[k].icon}</span><span class="nm">${esc(L[k].title)}</span><span class="ds">${esc(L[k].short)}</span>${p ? `<span class="sc ${p.best >= 80 ? 'hi' : ''}">${p.best}%</span>` : ''}</a>`;
+        return `<a class="excard" href="#/pron/${k}"><span class="ico">${icon(k === 'grammar' ? 'speak' : 'dict')}</span><span class="nm">${esc(L[k].title)}</span><span class="ds">${esc(L[k].short)}</span>${p ? `<span class="sc ${p.best >= 80 ? 'hi' : ''}">${p.best}%</span>` : ''}</a>`;
       }).join('')}</div>
-      ${Object.keys(L).map((k) => `<div class="card tip"><b>${L[k].icon} ${esc(L[k].title)}.</b> ${esc(L[k].tip)}</div>`).join('')}
+      ${Object.keys(L).map((k) => `<div class="tip card"><b>${esc(L[k].title)}.</b> ${esc(L[k].tip)}</div>`).join('')}
       ${SR ? '' : '<p class="card muted">Ваш браузер не поддерживает распознавание речи — в заданиях «Произнеси» будет запись голоса для самопроверки. Для автоматической проверки откройте сайт в Chrome.</p>'}`;
   }
 
@@ -870,27 +952,35 @@
 
   function settingsPage() {
     loadVoices();
-    app.innerHTML = `
-      <h1>⚙️ Настройки</h1>
-      <div class="card form">
+    app.innerHTML = `<div class="page-narrow">
+      <span class="eyebrow">Твоё рабочее место</span><h1>Настройки</h1>
+      <div class="card form"><h2>Оформление</h2>
+        <label class="row">Тема:
+          <select class="theme"><option value="light">Светлая бумага</option><option value="dark">Тёмная</option><option value="system">Как в системе</option></select></label>
+      </div>
+      <div class="card form"><h2>Озвучка</h2>
         <label class="row">Акцент:
           <select class="accent"><option value="en-GB">британский (как в книге)</option><option value="en-US">американский</option></select></label>
         <label class="row">Голос:
           <select class="voice"><option value="">автоматически</option>${voices.map((v) => `<option value="${esc(v.voiceURI)}">${esc(v.name)} (${esc(v.lang)})</option>`).join('')}</select></label>
         <label class="row">Скорость речи: <input type="range" class="rate" min="0.5" max="1.3" step="0.05"> <span class="ratev"></span></label>
-        <div><button class="btn small test" type="button">🔊 Проверить голос</button></div>
+        <div><button class="btn small test" type="button">${icon('volume')} Проверить голос</button></div>
         <label class="row"><input type="checkbox" class="autoplay"> Озвучивать правильный ответ после проверки</label>
         <p class="muted small">Озвучка: ${synth ? 'доступна' : 'недоступна'} · Распознавание речи: ${SR ? 'доступно' : 'недоступно (используйте Chrome)'}</p>
       </div>
       <div class="card form">
-        <h3>Прогресс</h3>
+        <h2>Прогресс</h2>
         <p class="muted small">Прогресс хранится только в этом браузере. Чтобы перенести его на другое устройство, сохраните файл и загрузите его там.</p>
         <div class="actions">
-          <button class="btn export" type="button">💾 Сохранить в файл</button>
-          <label class="btn">📂 Загрузить из файла<input type="file" class="import" accept=".json" hidden></label>
+          <button class="btn export" type="button">${icon('save')} Сохранить в файл</button>
+          <button class="btn import-trigger" type="button">${icon('upload')} Загрузить из файла</button>
+          <input type="file" class="import" accept=".json,application/json" aria-label="Файл прогресса" hidden>
           <button class="btn ghost danger reset" type="button">Сбросить всё</button>
         </div>
-      </div>`;
+      </div></div>`;
+    $('.theme').value = ['light', 'dark', 'system'].includes(settings.theme) ? settings.theme : 'light';
+    $('.theme').onchange = (e) => { settings.theme = e.target.value; saveSettings(); applyTheme(); };
+    $('.import-trigger').onclick = () => $('.import').click();
     $('.accent').value = settings.accent;
     $('.voice').value = settings.voice;
     $('.rate').value = settings.rate;
@@ -941,7 +1031,12 @@
     if (recog) { recog.abort(); recog = null; }
     const p = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
     const nav = { u: 'home', mix: 'mix', mistakes: 'mistakes', pron: 'pron', settings: 'settings' }[p[0]] || 'home';
-    $$('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === nav));
+    $$('[data-nav]').forEach((a) => {
+      const active = a.dataset.nav === nav;
+      a.classList.toggle('active', active);
+      if (active) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
     if (p[0] === 'u' && D.units[p[1]]) {
       const u = D.units[p[1]];
       if (p[2]) startUnit(u, p[2]);
