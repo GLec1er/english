@@ -68,7 +68,7 @@
   function applyTheme() {
     const dark = settings.theme === 'dark' || (settings.theme === 'system' && themeMedia.matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    $('meta[name="theme-color"]').content = dark ? '#1c201d' : '#f5f2eb';
+    $('meta[name="theme-color"]').content = dark ? '#18222c' : '#f4f0e6';
   }
   applyTheme();
   themeMedia.addEventListener('change', applyTheme);
@@ -88,14 +88,40 @@
   const storedPlan = Store.get('dailyPlan', {});
   const dailyPlan = storedPlan && typeof storedPlan === 'object' && !Array.isArray(storedPlan) ? storedPlan : {};
   const todayKey = () => Study.dateKey(new Date());
+  const Club = window.EGIUClub;
+  const club = Club.normalize(Store.get('club', null), todayKey());
+  const saveClub = () => Store.set('club', club);
+  saveClub();
+  const dayState = (day) => Club.dayStatus(activity, day, club);
+  const clubLedger = () => Club.ledger(activity, club, todayKey());
+  function ensureGoal(unit) {
+    const day = todayKey();
+    if (Study.isWeekend(day)) return null;
+    if (!club.goals[day]) {
+      const u = D.units[unit] || plannedUnit(day);
+      club.goals[day] = { unit: u.n, required: Club.requiredModes(unitTypes(u), club.policy) };
+      saveClub();
+    }
+    return club.goals[day];
+  }
+  function updatePolicy(policy) {
+    club.policy = policy === 'all' ? 'all' : 'core';
+    const goal = club.goals[todayKey()];
+    if (goal && !dayState(todayKey()).done) goal.required = Club.requiredModes(unitTypes(D.units[goal.unit]), club.policy);
+    saveClub();
+  }
   function recordActivity(context, results = []) {
+    if (context.unit) ensureGoal(context.unit);
+    const before = clubLedger(), wasDone = dayState(todayKey()).done;
     const ts = Date.now();
     const units = [...new Set(results.map((r) => r.item.ref && r.item.ref.u).filter((n) => D.units[n]))];
     activity.push({ id: ts + '-' + Math.random().toString(36).slice(2), ts, day: todayKey(),
       kind: context.kind || 'practice', units: context.unit ? [context.unit] : units,
       answers: results.length, correct: results.filter((r) => r.ok).length,
-      week: context.week || null, title: context.title || '' });
+      week: context.week || null, title: context.title || '', mode: context.mode || null });
     Store.set('activity', activity);
+    const after = clubLedger();
+    return { xp: after.xp - before.xp, closed: !wasDone && dayState(todayKey()).done, week: after.weeks.length > before.weeks.length };
   }
   let mistakes = Store.get('mistakes', []);
   const mkey = (r) => r.u + ':' + r.k + ':' + r.i;
@@ -656,12 +682,12 @@
       $('.sess-top .bar').setAttribute('aria-valuenow', items.length);
       const pct = Math.round((res.reduce((s, r) => s + r.score, 0) / res.length) * 100);
       if (onDone) onDone(pct);
-      recordActivity({ ...context, title }, res);
+      const reward = recordActivity({ ...context, title }, res);
       const wrong = res.filter((r) => !r.ok);
       const msg = pct >= 90 ? 'Хороший результат. Можно перейти к следующему упражнению.' : pct >= 70 ? 'Хороший результат. Осталось разобрать ошибки.' : pct >= 50 ? 'Есть над чем поработать. Повтори сложные задания.' : 'Вернись к правилу в книге и попробуй ещё раз.';
       $('.ex').innerHTML = `<div class="summary">
         <div class="bigpct">${pct}%</div><p>${msg}</p>
-        <p class="session-saved">${Study.dayStatus(activity, todayKey()).done ? 'План на сегодня выполнен.' : 'Подход записан в календарь.'} <a href="#/calendar">Посмотреть неделю →</a></p>
+        ${rewardPanel(reward)}
         ${wrong.length ? `<h3>Ошибки (${wrong.length})</h3><ul class="wronglist">${wrong.map((r) => `<li>${r.correct || esc(r.item.data.full || '')}${r.user ? `<div class="muted small">ваш ответ: ${esc(r.user)}</div>` : ''}</li>`).join('')}</ul>` : ''}
         <div class="actions">
           ${wrong.length ? '<button class="btn primary again-wrong" type="button">Повторить ошибки</button>' : ''}
@@ -704,7 +730,7 @@
   function weekGrid(key, selected) {
     const today = todayKey();
     return `<div class="week-grid" aria-label="План недели">${Study.weekDays(key).map((day, i) => {
-      const state = Study.dayStatus(activity, day);
+      const state = dayState(day);
       const past = day < today;
       const label = state.done ? 'Выполнено' : state.active ? 'Была практика' : past ? 'Без занятия' : 'По плану';
       const className = state.done ? 'is-done' : state.active ? 'is-active' : past ? 'is-missed' : '';
@@ -714,6 +740,7 @@
     }).join('')}</div>`;
   }
   function plannedUnit(day) {
+    if (club.goals[day]) return D.units[club.goals[day].unit];
     const assigned = D.units[dailyPlan[day]];
     if (assigned) return assigned;
     const done = activity.find((e) => e.day === day && ['unit', 'writing'].includes(e.kind));
@@ -724,19 +751,54 @@
     const latest = activity.slice().reverse().find((e) => ['unit', 'writing'].includes(e.kind));
     return latest ? D.units[latest.units[0] + 1] || D.units[145] : D.units[Store.get('last', 1)] || D.list[0];
   }
+  function clubBoard() {
+    const ledger = clubLedger();
+    return `<section class="club-board" aria-label="Уровень практики и серия дней">
+      <div class="club-identity"><span class="club-monogram" aria-hidden="true">G<span>U</span></span><div><span class="club-kicker" lang="en">The Study Club</span><b>Уровень практики ${ledger.level}</b></div></div>
+      <div class="club-experience"><div><b>${ledger.xp} XP</b><span>до следующего уровня ${ledger.remaining} XP</span></div><div class="club-meter" role="progressbar" aria-label="До следующего уровня" aria-valuemin="0" aria-valuemax="200" aria-valuenow="${ledger.progress}"><i style="width:${ledger.progress / 2}%"></i></div></div>
+      <div class="club-streak"><b>${ledger.streak}</b><span>${plural(ledger.streak, 'закрытый день', 'закрытых дня', 'закрытых дней')} подряд</span></div>
+    </section>`;
+  }
+  function clubAwards() {
+    const ledger = clubLedger();
+    const awards = [{ id: 'first', en: 'First day', title: 'Первый закрытый день', hint: 'Заверши свой дневной набор.' },
+      { id: 'weekend', en: 'Weekend', title: 'Оба повторения', hint: 'Повтори материал в субботу и воскресенье одной недели.' },
+      { id: 'week', en: 'Full week', title: 'Полная неделя', hint: 'Закрой пять будней и оба повторения.' }];
+    return `<section class="club-awards" aria-label="Печати дневника"><span class="eyebrow">Печати дневника</span><div class="award-list">${awards.map((award) => `<div class="award ${ledger.awards[award.id] ? 'is-earned' : ''}" title="${esc(award.hint)}"><span class="award-seal" aria-hidden="true"><small lang="en">Study Club</small>${icon(ledger.awards[award.id] ? 'check' : 'book')}<em lang="en">${award.en}</em></span><b>${award.title}</b><span>${ledger.awards[award.id] ? 'Получено' : award.hint}</span></div>`).join('')}</div>
+      <p>${ledger.weeks.length ? `${ledger.weeks.length} ${plural(ledger.weeks.length, 'недельная печать', 'недельные печати', 'недельных печатей')} в коллекции.` : 'Каждая полностью закрытая неделя добавляет новую печать.'}</p></section>`;
+  }
+  function goalList(goal, state) {
+    const rewarded = new Set(activity.filter((e) => e.day === todayKey() && ['unit', 'writing'].includes(e.kind)).map((e) => e.mode));
+    return `<ol class="goal-list" aria-label="Занятия на сегодня">${goal.required.map((t) => `<li><a class="${state.completed.includes(t) ? 'is-complete' : ''}" href="#/u/${goal.unit}/${t}"><span class="goal-check" aria-hidden="true">${state.completed.includes(t) ? icon('check') : ''}</span><span>${TYPES[t].name}</span><small>${state.completed.includes(t) ? 'готово' : rewarded.has(t) ? 'впереди' : '+10 XP'}</small></a></li>`).join('')}</ol>`;
+  }
+  function rewardPanel(reward) {
+    const day = todayKey(), state = dayState(day), goal = club.goals[day];
+    const next = goal && !Study.isWeekend(day) ? goal.required.find((t) => !state.completed.includes(t)) : null;
+    return `<div class="reward-panel${reward.closed ? ' just-closed' : ''}" role="status">
+      ${reward.closed ? `<span class="day-stamp" lang="en">Day<br>complete</span>` : icon('check')}
+      <div><b>${reward.week ? 'Полная неделя — печать твоя!' : reward.closed ? 'День закрыт. Хорошая работа.' : 'Подход сохранён.'}</b>
+        <p>${reward.xp ? `+${reward.xp} XP · ` : ''}${next ? `${state.completed.filter((t) => goal.required.includes(t)).length} из ${goal.required.length} занятий. Следующее — «${TYPES[next].name}».` : 'Результат записан в дневник.'}</p>
+        ${next ? `<a class="btn small primary" href="#/u/${goal.unit}/${next}">Следующее занятие ${icon('arrow')}</a>` : '<a href="#/calendar">Посмотреть неделю →</a>'}</div></div>`;
+  }
   function todayPlan() {
-    const day = todayKey(), state = Study.dayStatus(activity, day);
+    const day = todayKey();
+    const goal = ensureGoal();
+    const state = dayState(day);
     const weekend = Study.isWeekend(day);
     const u = plannedUnit(day);
     return `<div class="today-plan">
       <span class="eyebrow">${dateLabel(day, { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-      <h3>${weekend ? 'Повторить неделю' : 'Один юнит сегодня'}</h3>
-      ${state.done ? `<p class="plan-complete">${icon('check')} План выполнен</p>` : ''}
+      <h3>${weekend ? 'Повторить неделю' : 'Юнит на сегодня'}</h3>
+      ${state.done ? `<p class="plan-complete">${icon('check')} День закрыт</p>` : ''}
       ${weekend ? `<p>${state.units.length ? `Вспомни ${state.units.length} ${plural(state.units.length, 'юнит', 'юнита', 'юнитов')}, которые закреплял в будни. В наборе будет задание из каждого.` : 'На этой неделе пока нет записанных юнитов. Завершай упражнения в будни — здесь появится набор для повторения.'}</p>
+        ${state.units.length && !state.done ? '<p class="plan-help">+25 XP за полное повторение сегодня.</p>' : ''}
         ${state.units.length ? `<a class="btn primary" href="#/review/${day}">${state.done ? 'Повторить ещё раз' : 'Начать повторение'} ${icon('arrow')}</a>` : '<a class="btn" href="#/">Выбрать юнит</a>'}`
-        : `<label class="plan-label" for="today-unit">Юнит на сегодня</label><select id="today-unit">${D.list.map((item) => `<option value="${item.n}"${item.n === u.n ? ' selected' : ''}>${String(item.n).padStart(2, '0')} · ${esc(item.title)}</option>`).join('')}</select>
-        <p class="plan-help">Пройди его в книге и заверши здесь один подход. Остальные упражнения — по желанию.</p>
-        <a class="btn primary today-start" href="#/u/${u.n}">${state.done ? 'Продолжить практику' : 'Открыть юнит'} ${icon('arrow')}</a>`}
+        : `<label class="plan-label" for="today-unit">Один юнит после книги</label><select id="today-unit"${state.done ? ' disabled' : ''}>${D.list.map((item) => `<option value="${item.n}"${item.n === u.n ? ' selected' : ''}>${String(item.n).padStart(2, '0')} · ${esc(item.title)}</option>`).join('')}</select>
+        <label class="plan-label policy-label" for="goal-policy">${state.done ? 'Набор на следующие дни' : 'Набор занятий'}</label><select id="goal-policy"><option value="core"${club.policy === 'core' ? ' selected' : ''}>Основной набор · 4 занятия</option><option value="all"${club.policy === 'all' ? ' selected' : ''}>Все упражнения юнита</option></select>
+        <div class="goal-heading"><b>${state.completed.filter((t) => goal.required.includes(t)).length} / ${goal.required.length} завершено</b><span>+20 XP за день</span></div>
+        ${goalList(goal, state)}
+        <p class="plan-help">За другие режимы тоже получишь XP. Повтор пройденного режима сохраняет результат.</p>
+        <a class="btn primary today-start" href="#/u/${u.n}${state.done ? '' : '/' + (goal.required.find((t) => !state.completed.includes(t)) || goal.required[0])}">${state.done ? 'Продолжить практику' : 'Следующее занятие'} ${icon('arrow')}</a>`}
     </div>`;
   }
   function wireTodayPlan() {
@@ -745,18 +807,24 @@
     select.onchange = () => {
       dailyPlan[todayKey()] = +select.value;
       Store.set('dailyPlan', dailyPlan);
-      $('.today-start').href = '#/u/' + select.value;
+      club.goals[todayKey()] = { unit: +select.value, required: Club.requiredModes(unitTypes(D.units[select.value]), club.policy) };
+      saveClub(); route();
+    };
+    $('#goal-policy').onchange = (e) => {
+      updatePolicy(e.target.value); route();
     };
   }
   function calendarPage(day) {
+    ensureGoal();
     const week = Study.weekStart(day), today = todayKey();
     const stats = Study.summary(activity, day);
     const rows = activity.filter((e) => e.day === day);
-    const state = Study.dayStatus(activity, day);
+    const state = dayState(day);
     const units = Study.weekUnits(activity, day);
     app.innerHTML = `<div class="calendar-page">
       <span class="eyebrow">Личный ритм / 5 + 2</span><h1>Календарь занятий</h1>
       <p class="page-intro">Пн–пт — один юнит после книги. Сб и вс — повторение пройденного за неделю.</p>
+      ${clubBoard()}
       <div class="calendar-layout">
         <section class="calendar-main" aria-labelledby="week-title">
           <div class="week-heading"><h2 id="week-title">${weekLabel(day)}</h2><div class="week-controls">
@@ -779,6 +847,7 @@
           <p class="history-note">История накапливается с этого обновления. Старые лучшие результаты сохранены в юнитах. Даты — по времени устройства.</p>
         </section>
         <aside class="calendar-aside" aria-label="Занятие и повторение">${todayPlan()}
+          ${clubAwards()}
           <div class="week-topics"><span class="eyebrow">Для повторения · ${weekLabel(week)}</span><h3>Юниты этой недели</h3>
             ${units.length ? `<div class="review-units">${units.map((n) => `<a href="#/u/${n}"><small>${String(n).padStart(2, '0')}</small><span lang="en">${esc(D.units[n].title)}</span></a>`).join('')}</div><a class="btn" href="#/review/${week}">Повторить эти юниты ${icon('arrow')}</a>` : '<p>Здесь появятся юниты с завершёнными подходами с понедельника по пятницу.</p>'}
           </div>
@@ -812,6 +881,7 @@
   }
 
   function home() {
+    ensureGoal();
     const last = D.units[Store.get('last', 0)];
     const current = last || D.list[0];
     const started = D.list.filter((u) => unitTypes(u).some((t) => getProg(u.n, t))).length;
@@ -828,6 +898,7 @@
           <div><b>${mistakes.length}</b><span>${plural(mistakes.length, 'ошибка', 'ошибки', 'ошибок')} на повтор</span></div>
         </div>
       </section>
+      ${clubBoard()}
       <section class="home-week" aria-label="Текущая неделя"><div class="week-heading"><h2>На этой неделе <span>${weekLabel(todayKey())}</span></h2><a href="#/calendar">Календарь ${icon('arrow')}</a></div>${weekGrid(todayKey())}</section>
       <div class="study-layout">
         <section class="study-library" aria-labelledby="library-title">
@@ -884,6 +955,7 @@
 
   function unitPage(u) {
     prep(u);
+    const goal = ensureGoal(u.n), state = dayState(todayKey());
     Store.set('last', u.n);
     const prev = D.units[u.n - 1], next = D.units[u.n + 1];
     const groups = {};
@@ -900,6 +972,7 @@
         </aside>
         <section class="unit-practice" aria-labelledby="practice-title">
           <div class="practice-head"><h2 id="practice-title">Закрепить тему</h2><span class="muted small">${hasProgress ? `Средний лучший результат: ${unitPct(u)}%` : 'Выбери упражнение'}</span></div>
+          ${goal && goal.unit === u.n ? `<section class="unit-goal" aria-label="Дневной набор"><div class="goal-heading"><b>${state.done ? 'День закрыт' : `Дневной набор · ${state.completed.filter((t) => goal.required.includes(t)).length} / ${goal.required.length}`}</b><a href="#/calendar">Дневник →</a></div>${goalList(goal, state)}</section>` : goal && !state.done ? '<div class="unit-goal-note"><span>Можно сделать этот юнит целью на сегодня.</span><button class="btn small make-today-unit" type="button">Выбрать на сегодня</button></div>' : ''}
           ${Object.keys(GROUPS).filter((g) => groups[g]).map((g) => `
             <h3 class="grp">${GROUPS[g]}</h3>
             <div class="grid">${groups[g].map((t) => {
@@ -922,10 +995,17 @@
       else delete book[u.n];
       Store.set('book', book);
     };
+    const makeToday = $('.make-today-unit');
+    if (makeToday) makeToday.onclick = () => {
+      club.goals[todayKey()] = { unit: u.n, required: Club.requiredModes(unitTypes(u), club.policy) };
+      dailyPlan[todayKey()] = u.n;
+      Store.set('dailyPlan', dailyPlan); saveClub(); route();
+    };
   }
 
   function startUnit(u, t) {
     if (!TYPES[t] || !available(u, t)) return go('#/u/' + u.n);
+    ensureGoal(u.n);
     Store.set('last', u.n);
     if (t === 'write') return writePage(u);
     session({
@@ -933,7 +1013,7 @@
       back: '#/u/' + u.n,
       items: unitItems(u, t),
       onDone: (pct) => saveProg(u.n, t, pct),
-      context: { kind: 'unit', unit: u.n },
+      context: { kind: 'unit', unit: u.n, mode: t },
     });
   }
 
@@ -973,8 +1053,8 @@
     $('.done').onclick = () => {
       if ((ta.value.match(/[A-Za-z']+/g) || []).length < 15) { toast('Напишите хотя бы 15 слов'); return; }
       saveProg(u.n, 'write', 100);
-      recordActivity({ kind: 'writing', unit: u.n, title: `Unit ${u.n} · Свободное письмо` });
-      toast('Сохранено');
+      const reward = recordActivity({ kind: 'writing', unit: u.n, mode: 'write', title: `Unit ${u.n} · Свободное письмо` });
+      toast(reward.closed ? `День закрыт · +${reward.xp} XP` : reward.xp ? `Текст сохранён · +${reward.xp} XP` : 'Текст сохранён');
       go('#/u/' + u.n);
     };
   }
@@ -1084,6 +1164,11 @@
         <label class="row">Тема:
           <select class="theme"><option value="light">Светлая бумага</option><option value="dark">Тёмная</option><option value="system">Как в системе</option></select></label>
       </div>
+      <div class="card form"><h2>Ежедневный план</h2>
+        <label class="row">Будний набор: <select class="routine"><option value="core">Основной набор · 4 занятия</option><option value="all">Все упражнения юнита</option></select></label>
+        <p class="muted small">Основной набор: впиши форму, перефразируй, письмо и диктант. Выбор применяется к незакрытому сегодняшнему дню и следующим дням.</p>
+        <p class="muted small">10 XP за новый режим дня · 20 XP за закрытый будний план · 25 XP за повторение выходного · 50 XP за полную неделю. Каждые 200 XP — новый уровень практики.</p>
+      </div>
       <div class="card form"><h2>Озвучка</h2>
         <label class="row">Акцент:
           <select class="accent"><option value="en-GB">британский (как в книге)</option><option value="en-US">американский</option></select></label>
@@ -1106,6 +1191,8 @@
       </div></div>`;
     $('.theme').value = ['light', 'dark', 'system'].includes(settings.theme) ? settings.theme : 'light';
     $('.theme').onchange = (e) => { settings.theme = e.target.value; saveSettings(); applyTheme(); };
+    $('.routine').value = club.policy;
+    $('.routine').onchange = (e) => updatePolicy(e.target.value);
     $('.import-trigger').onclick = () => $('.import').click();
     $('.accent').value = settings.accent;
     $('.voice').value = settings.voice;
