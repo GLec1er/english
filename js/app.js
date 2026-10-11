@@ -83,6 +83,20 @@
   }
 
   const book = Store.get('book', {});
+  const Study = window.EGIUStudy;
+  const activity = Study.normalize(Store.get('activity', []));
+  const storedPlan = Store.get('dailyPlan', {});
+  const dailyPlan = storedPlan && typeof storedPlan === 'object' && !Array.isArray(storedPlan) ? storedPlan : {};
+  const todayKey = () => Study.dateKey(new Date());
+  function recordActivity(context, results = []) {
+    const ts = Date.now();
+    const units = [...new Set(results.map((r) => r.item.ref && r.item.ref.u).filter((n) => D.units[n]))];
+    activity.push({ id: ts + '-' + Math.random().toString(36).slice(2), ts, day: todayKey(),
+      kind: context.kind || 'practice', units: context.unit ? [context.unit] : units,
+      answers: results.length, correct: results.filter((r) => r.ok).length,
+      week: context.week || null, title: context.title || '' });
+    Store.set('activity', activity);
+  }
   let mistakes = Store.get('mistakes', []);
   const mkey = (r) => r.u + ':' + r.k + ':' + r.i;
   function addMistake(r) {
@@ -562,8 +576,8 @@
   let keyHandler = null;
   document.addEventListener('keydown', (e) => keyHandler && keyHandler(e));
 
-  function session({ title, back, items, onDone }) {
-    let pos = 0, ctl = {}, answered = false;
+  function session({ title, back, items, onDone, context = {} }) {
+    let pos = 0, ctl = {}, answered = false, ended = false;
     const res = [];
     app.innerHTML = `<div class="session">
       <div class="sess-top">
@@ -635,15 +649,19 @@
     }
 
     function end() {
+      if (ended) return;
+      ended = true;
       keyHandler = null;
       bar.style.width = '100%';
       $('.sess-top .bar').setAttribute('aria-valuenow', items.length);
       const pct = Math.round((res.reduce((s, r) => s + r.score, 0) / res.length) * 100);
       if (onDone) onDone(pct);
+      recordActivity({ ...context, title }, res);
       const wrong = res.filter((r) => !r.ok);
       const msg = pct >= 90 ? 'Хороший результат. Можно перейти к следующему упражнению.' : pct >= 70 ? 'Хороший результат. Осталось разобрать ошибки.' : pct >= 50 ? 'Есть над чем поработать. Повтори сложные задания.' : 'Вернись к правилу в книге и попробуй ещё раз.';
       $('.ex').innerHTML = `<div class="summary">
         <div class="bigpct">${pct}%</div><p>${msg}</p>
+        <p class="session-saved">${Study.dayStatus(activity, todayKey()).done ? 'План на сегодня выполнен.' : 'Подход записан в календарь.'} <a href="#/calendar">Посмотреть неделю →</a></p>
         ${wrong.length ? `<h3>Ошибки (${wrong.length})</h3><ul class="wronglist">${wrong.map((r) => `<li>${r.correct || esc(r.item.data.full || '')}${r.user ? `<div class="muted small">ваш ответ: ${esc(r.user)}</div>` : ''}</li>`).join('')}</ul>` : ''}
         <div class="actions">
           ${wrong.length ? '<button class="btn primary again-wrong" type="button">Повторить ошибки</button>' : ''}
@@ -651,8 +669,8 @@
           <button class="btn ghost back" type="button">Назад</button>
         </div></div>`;
       const aw = $('.again-wrong');
-      if (aw) aw.onclick = () => session({ title, back, items: shuffle(wrong.map((r) => r.item)), onDone: null });
-      $('.again').onclick = () => session({ title, back, items: shuffle(items), onDone });
+      if (aw) aw.onclick = () => session({ title: title + ' · ошибки', back, items: shuffle(wrong.map((r) => r.item)), onDone: null });
+      $('.again').onclick = () => session({ title, back, items: shuffle(items), onDone, context });
       $('.back').onclick = () => go(back);
     }
 
@@ -675,6 +693,114 @@
   }
 
   const bar = (pct) => `<div class="pbar"><i style="width:${pct}%"></i></div>`;
+
+  // ---------- недельный план ----------
+  const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const dateLabel = (key, options = { day: 'numeric', month: 'long' }) => Study.date(key).toLocaleDateString('ru-RU', options);
+  function weekLabel(key) {
+    const days = Study.weekDays(key);
+    return `${dateLabel(days[0], { day: 'numeric', month: 'short' })} — ${dateLabel(days[6], { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
+  function weekGrid(key, selected) {
+    const today = todayKey();
+    return `<div class="week-grid" aria-label="План недели">${Study.weekDays(key).map((day, i) => {
+      const state = Study.dayStatus(activity, day);
+      const past = day < today;
+      const label = state.done ? 'Выполнено' : state.active ? 'Была практика' : past ? 'Без занятия' : 'По плану';
+      const className = state.done ? 'is-done' : state.active ? 'is-active' : past ? 'is-missed' : '';
+      return `<a class="week-day ${className}${day === today ? ' is-today' : ''}${day === selected ? ' is-selected' : ''}" href="#/calendar/${day}" aria-label="${esc(dateLabel(day, { weekday: 'long', day: 'numeric', month: 'long' }))}. ${i < 5 ? 'Один юнит' : 'Повторение недели'}. ${label}"${day === today ? ' aria-current="date"' : ''}>
+        <span class="day-name">${dayNames[i]}</span><b>${Study.date(day).getDate()}</b><span class="day-task">${i < 5 ? 'Юнит' : 'Повтор'}</span>
+        <span class="day-mark" aria-hidden="true">${state.done ? icon('check') : state.active ? '·' : '—'}</span></a>`;
+    }).join('')}</div>`;
+  }
+  function plannedUnit(day) {
+    const assigned = D.units[dailyPlan[day]];
+    if (assigned) return assigned;
+    const done = activity.find((e) => e.day === day && ['unit', 'writing'].includes(e.kind));
+    if (done) return D.units[done.units[0]];
+    const learned = new Set(activity.filter((e) => ['unit', 'writing'].includes(e.kind)).flatMap((e) => e.units));
+    const inBook = D.list.find((u) => book[u.n] && !learned.has(u.n));
+    if (inBook) return inBook;
+    const latest = activity.slice().reverse().find((e) => ['unit', 'writing'].includes(e.kind));
+    return latest ? D.units[latest.units[0] + 1] || D.units[145] : D.units[Store.get('last', 1)] || D.list[0];
+  }
+  function todayPlan() {
+    const day = todayKey(), state = Study.dayStatus(activity, day);
+    const weekend = Study.isWeekend(day);
+    const u = plannedUnit(day);
+    return `<div class="today-plan">
+      <span class="eyebrow">${dateLabel(day, { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+      <h3>${weekend ? 'Повторить неделю' : 'Один юнит сегодня'}</h3>
+      ${state.done ? `<p class="plan-complete">${icon('check')} План выполнен</p>` : ''}
+      ${weekend ? `<p>${state.units.length ? `Вспомни ${state.units.length} ${plural(state.units.length, 'юнит', 'юнита', 'юнитов')}, которые закреплял в будни. В наборе будет задание из каждого.` : 'На этой неделе пока нет записанных юнитов. Завершай упражнения в будни — здесь появится набор для повторения.'}</p>
+        ${state.units.length ? `<a class="btn primary" href="#/review/${day}">${state.done ? 'Повторить ещё раз' : 'Начать повторение'} ${icon('arrow')}</a>` : '<a class="btn" href="#/">Выбрать юнит</a>'}`
+        : `<label class="plan-label" for="today-unit">Юнит на сегодня</label><select id="today-unit">${D.list.map((item) => `<option value="${item.n}"${item.n === u.n ? ' selected' : ''}>${String(item.n).padStart(2, '0')} · ${esc(item.title)}</option>`).join('')}</select>
+        <p class="plan-help">Пройди его в книге и заверши здесь один подход. Остальные упражнения — по желанию.</p>
+        <a class="btn primary today-start" href="#/u/${u.n}">${state.done ? 'Продолжить практику' : 'Открыть юнит'} ${icon('arrow')}</a>`}
+    </div>`;
+  }
+  function wireTodayPlan() {
+    const select = $('#today-unit');
+    if (!select) return;
+    select.onchange = () => {
+      dailyPlan[todayKey()] = +select.value;
+      Store.set('dailyPlan', dailyPlan);
+      $('.today-start').href = '#/u/' + select.value;
+    };
+  }
+  function calendarPage(day) {
+    const week = Study.weekStart(day), today = todayKey();
+    const stats = Study.summary(activity, day);
+    const rows = activity.filter((e) => e.day === day);
+    const state = Study.dayStatus(activity, day);
+    const units = Study.weekUnits(activity, day);
+    app.innerHTML = `<div class="calendar-page">
+      <span class="eyebrow">Личный ритм / 5 + 2</span><h1>Календарь занятий</h1>
+      <p class="page-intro">Пн–пт — один юнит после книги. Сб и вс — повторение пройденного за неделю.</p>
+      <div class="calendar-layout">
+        <section class="calendar-main" aria-labelledby="week-title">
+          <div class="week-heading"><h2 id="week-title">${weekLabel(day)}</h2><div class="week-controls">
+            <a class="btn ghost" href="#/calendar/${Study.shift(day, -7)}" aria-label="Предыдущая неделя">←</a>
+            <a class="btn ghost small" href="#/calendar/${today}">Сегодня</a>
+            <a class="btn ghost" href="#/calendar/${Study.shift(day, 7)}" aria-label="Следующая неделя">→</a></div></div>
+          ${weekGrid(day, day)}
+          <p class="calendar-legend"><span>${icon('check')} план выполнен</span><span><b>·</b> другая практика</span><span>— без записи</span></p>
+          <div class="week-stats" aria-label="Статистика за выбранную неделю">
+            <div><b>${stats.days}<small>/ 7</small></b><span>${plural(stats.days, 'активный день', 'активных дня', 'активных дней')}</span></div>
+            <div><b>${stats.sessions}</b><span>${plural(stats.sessions, 'подход', 'подхода', 'подходов')}</span></div>
+            <div><b>${stats.answers}</b><span>${plural(stats.answers, 'задание', 'задания', 'заданий')}</span></div>
+            <div><b>${stats.accuracy == null ? '—' : stats.accuracy + '%'}</b><span>верных ответов</span></div>
+          </div>
+          <p class="stats-note">${stats.answers ? `${stats.correct} из ${stats.answers} ${plural(stats.answers, 'ответа', 'ответов', 'ответов')} полностью верны. ` : ''}Письмо учитывается как подход, без оценки правильности.</p>
+          <section class="day-history" aria-labelledby="day-title"><div class="history-heading"><h2 id="day-title">${dateLabel(day, { weekday: 'long', day: 'numeric', month: 'long' })}</h2>${state.done ? '<span class="status-done">План выполнен</span>' : ''}</div>
+            ${rows.length ? `<ol class="activity-list">${rows.map((e) => `<li><div><b>${esc(e.title || (e.kind === 'writing' ? 'Свободное письмо' : 'Практика'))}</b><span>${e.kind === 'writing' ? 'Сохранён текст · без оценки' : `${e.answers} ${plural(e.answers, 'задание', 'задания', 'заданий')} · ${e.correct} верно`}</span></div>${Number.isFinite(e.ts) ? `<time datetime="${new Date(e.ts).toISOString()}">${new Date(e.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</time>` : ''}</li>`).join('')}</ol>`
+              : `<p class="history-empty">${day > today ? 'Занятие впереди. После завершения оно появится здесь.' : 'Завершённых подходов в этот день нет.'}</p>`}
+          </section>
+          <p class="history-note">История накапливается с этого обновления. Старые лучшие результаты сохранены в юнитах. Даты — по времени устройства.</p>
+        </section>
+        <aside class="calendar-aside" aria-label="Занятие и повторение">${todayPlan()}
+          <div class="week-topics"><span class="eyebrow">Для повторения · ${weekLabel(week)}</span><h3>Юниты этой недели</h3>
+            ${units.length ? `<div class="review-units">${units.map((n) => `<a href="#/u/${n}"><small>${String(n).padStart(2, '0')}</small><span lang="en">${esc(D.units[n].title)}</span></a>`).join('')}</div><a class="btn" href="#/review/${week}">Повторить эти юниты ${icon('arrow')}</a>` : '<p>Здесь появятся юниты с завершёнными подходами с понедельника по пятницу.</p>'}
+          </div>
+        </aside>
+      </div></div>`;
+    wireTodayPlan();
+  }
+  function reviewPage(day) {
+    const week = Study.weekStart(day), units = Study.weekUnits(activity, day);
+    if (!units.length) {
+      app.innerHTML = `<div class="page-narrow"><span class="eyebrow">Повторение / ${weekLabel(day)}</span><h1>Пока нечего повторять</h1><p class="page-intro">На этой неделе нет записанных подходов к юнитам в будни. Заверши упражнение после книги — его тема войдёт в недельное повторение.</p><a class="btn primary" href="#/">Выбрать юнит ${icon('arrow')}</a><a class="btn ghost" href="#/calendar/${day}">К календарю</a></div>`;
+      return;
+    }
+    // One form of each example; every studied unit is covered before filling the set.
+    const pool = shuffle(units.flatMap((n) => {
+      const u = D.units[n];
+      return ['mc', 'fill', 'err', 'tr'].flatMap((t) => available(u, t) ? unitItems(u, t) : []);
+    }));
+    const items = Study.reviewSelection(pool);
+    session({ title: `Повторение недели · ${weekLabel(day)}`, back: '#/calendar/' + day,
+      items: shuffle(items), context: { kind: 'review', week } });
+  }
 
   function unitRow(u) {
     const pct = unitPct(u);
@@ -702,6 +828,7 @@
           <div><b>${mistakes.length}</b><span>${plural(mistakes.length, 'ошибка', 'ошибки', 'ошибок')} на повтор</span></div>
         </div>
       </section>
+      <section class="home-week" aria-label="Текущая неделя"><div class="week-heading"><h2>На этой неделе <span>${weekLabel(todayKey())}</span></h2><a href="#/calendar">Календарь ${icon('arrow')}</a></div>${weekGrid(todayKey())}</section>
       <div class="study-layout">
         <section class="study-library" aria-labelledby="library-title">
           <div class="library-head"><h2 id="library-title">Оглавление</h2>
@@ -716,12 +843,8 @@
           <div class="sections"></div>
         </section>
         <aside class="study-aside" aria-label="Текущее занятие">
-          <div class="continue-block"><span class="eyebrow">${last ? 'Вернуться к юниту' : 'Первое занятие'}</span>
-            <div class="continue-unit"><small>UNIT</small>${String(current.n).padStart(2, '0')}</div>
-            <h3 lang="en">${esc(current.title)}</h3>
-            <p>${last ? `Unit ${current.n} · ${esc(current.section.ru)}` : 'Начни с первого юнита или найди тот, который уже прошёл в книге.'}</p>
-            <a class="btn primary" href="#/u/${current.n}">${last ? 'Продолжить' : 'Начать'} ${icon('arrow')}</a>
-          </div>
+          ${todayPlan()}
+          ${last ? `<a class="aside-link" href="#/u/${current.n}">${icon('book')}<span>Вернуться к Unit ${current.n}</span>${icon('arrow')}</a>` : ''}
           <p class="aside-note">Отмечай пройденные юниты на их страницах — так их будет проще повторять в миксе.</p>
           <a class="aside-link" href="#/mix">${icon('mix')}<span>Повторить пройденное</span>${icon('arrow')}</a>
           <a class="aside-link" href="#/mistakes">${icon('tr')}<span>Разобрать ошибки</span><small>${mistakes.length}</small></a>
@@ -756,6 +879,7 @@
     search.oninput = drawSections;
     $$('.filter').forEach((b) => { b.onclick = () => { filter = b.dataset.filter; Store.set('homeFilter', filter); drawSections(); }; });
     drawSections();
+    wireTodayPlan();
   }
 
   function unitPage(u) {
@@ -809,6 +933,7 @@
       back: '#/u/' + u.n,
       items: unitItems(u, t),
       onDone: (pct) => saveProg(u.n, t, pct),
+      context: { kind: 'unit', unit: u.n },
     });
   }
 
@@ -848,6 +973,7 @@
     $('.done').onclick = () => {
       if ((ta.value.match(/[A-Za-z']+/g) || []).length < 15) { toast('Напишите хотя бы 15 слов'); return; }
       saveProg(u.n, 'write', 100);
+      recordActivity({ kind: 'writing', unit: u.n, title: `Unit ${u.n} · Свободное письмо` });
       toast('Сохранено');
       go('#/u/' + u.n);
     };
@@ -1030,7 +1156,7 @@
     if (synth) synth.cancel();
     if (recog) { recog.abort(); recog = null; }
     const p = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
-    const nav = { u: 'home', mix: 'mix', mistakes: 'mistakes', pron: 'pron', settings: 'settings' }[p[0]] || 'home';
+    const nav = { u: 'home', calendar: 'calendar', review: 'calendar', mix: 'mix', mistakes: 'mistakes', pron: 'pron', settings: 'settings' }[p[0]] || 'home';
     $$('[data-nav]').forEach((a) => {
       const active = a.dataset.nav === nav;
       a.classList.toggle('active', active);
@@ -1041,7 +1167,9 @@
       const u = D.units[p[1]];
       if (p[2]) startUnit(u, p[2]);
       else unitPage(u);
-    } else if (p[0] === 'mix') mixPage();
+    } else if (p[0] === 'calendar') calendarPage(Study.date(p[1]) ? p[1] : todayKey());
+    else if (p[0] === 'review') reviewPage(Study.date(p[1]) ? p[1] : todayKey());
+    else if (p[0] === 'mix') mixPage();
     else if (p[0] === 'mistakes') mistakesPage();
     else if (p[0] === 'pron') (p[1] ? labRun(p[1]) : labPage());
     else if (p[0] === 'settings') settingsPage();
