@@ -88,40 +88,64 @@
   const storedPlan = Store.get('dailyPlan', {});
   const dailyPlan = storedPlan && typeof storedPlan === 'object' && !Array.isArray(storedPlan) ? storedPlan : {};
   const todayKey = () => Study.dateKey(new Date());
+  const Steps = window.EGIUSteps, Course = window.EGIUCourse;
+  const steps = Steps.normalize(Store.get('steps', {}));
+  const storedCourse = Store.get('course', null);
+  let course = Course.normalize(storedCourse);
+  if (!storedCourse) {
+    course.since = todayKey() > course.since ? todayKey() : course.since;
+    for (let n = 1; n < 36; n++) book[n] = true;
+    Store.set('book', book);
+    Store.set('last', 36);
+    if (!Study.isWeekend(todayKey())) dailyPlan[todayKey()] = 36;
+  }
+  const saveCourse = () => Store.set('course', course);
+  saveCourse();
   const Club = window.EGIUClub;
   const club = Club.normalize(Store.get('club', null), todayKey());
+  if (!storedCourse && todayKey() >= course.since && !Study.isWeekend(todayKey())) delete club.goals[todayKey()];
   const saveClub = () => Store.set('club', club);
   saveClub();
-  const dayState = (day) => Club.dayStatus(activity, day, club);
-  const clubLedger = () => Club.ledger(activity, club, todayKey());
-  function ensureGoal(unit) {
+  const dayState = (day) => {
+    const state = Club.dayStatus(activity, day, club, course);
+    const goal = club.goals[day];
+    if (day === todayKey() && goal && !Study.isWeekend(day)) state.completed = unitTypes(D.units[goal.unit]).filter((t) => modeStatus(D.units[goal.unit], t).complete);
+    return state;
+  };
+  const clubLedger = () => Club.ledger(activity, club, todayKey(), course);
+  function ensureGoal() {
     const day = todayKey();
     if (Study.isWeekend(day)) return null;
     if (!club.goals[day]) {
-      const u = D.units[unit] || plannedUnit(day);
-      club.goals[day] = { unit: u.n, required: Club.requiredModes(unitTypes(u), club.policy) };
+      const u = plannedUnit(day);
+      club.goals[day] = { unit: u.n, required: unitTypes(u) };
       saveClub();
     }
+    if (day >= course.since && !course.closed[day]) { club.goals[day].required = unitTypes(D.units[club.goals[day].unit]); saveClub(); }
     return club.goals[day];
   }
-  function updatePolicy(policy) {
-    club.policy = policy === 'all' ? 'all' : 'core';
+  function closeGoal(unit) {
     const goal = club.goals[todayKey()];
-    if (goal && !dayState(todayKey()).done) goal.required = Club.requiredModes(unitTypes(D.units[goal.unit]), club.policy);
-    saveClub();
+    if (!goal) return;
+    course = Course.close(course, todayKey(), unit, unitCompletion(D.units[unit]).complete, goal.unit);
+    saveCourse();
   }
   function recordActivity(context, results = []) {
-    if (context.unit) ensureGoal(context.unit);
+    if (context.unit) ensureGoal();
     const before = clubLedger(), wasDone = dayState(todayKey()).done;
+    const beforeRank = Course.rank(course, todayKey()).current.en;
     const ts = Date.now();
     const units = [...new Set(results.map((r) => r.item.ref && r.item.ref.u).filter((n) => D.units[n]))];
-    activity.push({ id: ts + '-' + Math.random().toString(36).slice(2), ts, day: todayKey(),
+    const id = ts + '-' + Math.random().toString(36).slice(2);
+    activity.push({ id, ts, day: todayKey(), session: context.session || null,
       kind: context.kind || 'practice', units: context.unit ? [context.unit] : units,
-      answers: results.length, correct: results.filter((r) => r.ok).length,
+      answers: context.stepped ? 0 : results.length, correct: context.stepped ? 0 : results.filter((r) => r.ok).length,
       week: context.week || null, title: context.title || '', mode: context.mode || null });
     Store.set('activity', activity);
+    if (context.unit && ['unit', 'writing', 'claim'].includes(context.kind)) closeGoal(context.unit);
     const after = clubLedger();
-    return { xp: after.xp - before.xp, closed: !wasDone && dayState(todayKey()).done, week: after.weeks.length > before.weeks.length };
+    const rank = Course.rank(course, todayKey());
+    return { id, xp: after.xp - before.xp, closed: !wasDone && dayState(todayKey()).done, week: after.weeks.length > before.weeks.length, rank: rank.current.en !== beforeRank ? rank.current : null };
   }
   let mistakes = Store.get('mistakes', []);
   const mkey = (r) => r.u + ':' + r.k + ':' + r.i;
@@ -283,10 +307,15 @@
     return 0;
   }
   const unitTypes = (u) => Object.keys(TYPES).filter((t) => available(u, t));
-  function unitPct(u) {
-    const ts = unitTypes(u);
-    if (!ts.length) return 0;
-    return Math.round(ts.reduce((s, t) => s + ((getProg(u.n, t) || {}).best || 0), 0) / ts.length);
+  const stepKey = (item) => item.ref.k + ':' + item.ref.i;
+  function modeStatus(u, t) {
+    const keys = t === 'write' ? ['write:0'] : unitItems(u, t, false).map(stepKey);
+    return Steps.status(steps[u.n + ':' + t], keys, !!getProg(u.n, t));
+  }
+  function unitCompletion(u) {
+    const modes = unitTypes(u).map((t) => modeStatus(u, t));
+    const done = modes.reduce((n, s) => n + s.done, 0), total = modes.reduce((n, s) => n + s.total, 0);
+    return { done, total, pct: total ? Math.round(done / total * 100) : 0, complete: modes.length > 0 && modes.every((s) => s.complete) };
   }
 
   function makeItem(t, u, kind, i) {
@@ -295,14 +324,14 @@
     return { t, data, ref: { u: u.n, k: kind, i } };
   }
 
-  function unitItems(u, t) {
+  function unitItems(u, t, random = true) {
     prep(u);
     const k = TYPES[t].kind;
     const idx = k === 'gap' ? u.gaps.map((_, i) => i)
       : k === 'order' ? u.orderIdx
         : k === 'err' ? u.errs.map((_, i) => i)
           : u.trs.map((_, i) => i);
-    return shuffle(idx).map((i) => makeItem(t, u, k === 'order' ? 'gap' : k, i));
+    return (random ? shuffle(idx) : idx).map((i) => makeItem(t, u, k === 'order' ? 'gap' : k, i));
   }
 
   // ---------- речь ----------
@@ -603,28 +632,59 @@
   document.addEventListener('keydown', (e) => keyHandler && keyHandler(e));
 
   function session({ title, back, items, onDone, context = {} }) {
-    let pos = 0, ctl = {}, answered = false, ended = false;
-    const res = [];
+    let pos = 0, ctl = {}, answered = false, ended = false, reward = null;
+    const tracked = context.kind === 'unit' && context.unit && context.mode;
+    const sessionId = Date.now() + '-' + Math.random().toString(36).slice(2);
+    const allItems = items, entryId = context.unit + ':' + context.mode;
+    const saved = tracked ? steps[entryId] : null;
+    const alreadyComplete = tracked && modeStatus(D.units[context.unit], context.mode).complete;
+    const baseline = tracked && !alreadyComplete ? allItems.filter((it) => saved && saved.answers[stepKey(it)]).map((it) => ({
+      ...saved.answers[stepKey(it)], item: it, correct: it.ref.k === 'gap' ? hl(it.data) : esc(it.data.a[0]),
+    })) : [];
+    if (baseline.length) items = allItems.filter((it) => !saved.answers[stepKey(it)]);
+    const res = [], total = allItems.length;
+    const results = () => baseline.concat(res.filter(Boolean));
+    const accuracy = () => Math.round(results().reduce((sum, r) => sum + r.score, 0) / results().length * 100);
     app.innerHTML = `<div class="session">
       <div class="sess-top">
         <button class="btn ghost quit" type="button" aria-label="Вернуться к выбору упражнений" title="Выйти">${icon('close')}</button>
-        <div class="bar" role="progressbar" aria-label="Прогресс занятия" aria-valuemin="0" aria-valuemax="${items.length}" aria-valuenow="0"><i></i></div><span class="count" aria-live="polite"></span>
+        <div class="bar" role="progressbar" aria-label="Выполнение занятия" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${baseline.length}"><i></i></div><span class="count" aria-live="polite"></span>
       </div>
       <h1 class="sess-title">${esc(title)}</h1>
+      ${tracked ? `<p class="session-note">${alreadyComplete ? 'Повторение выполненного режима.' : baseline.length ? 'Продолжаем с оставшихся заданий.' : 'Каждый ответ сохраняется сразу. Можно продолжить позже.'}</p>` : ''}
       <div class="card ex"><div class="area"></div><div class="fb" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="actions"><button class="btn primary main" type="button"></button></div>
       </div></div>`;
     const area = $('.area'), fb = $('.fb'), btn = $('.main'), bar = $('.bar i'), count = $('.count');
     $('.quit').onclick = () => go(back);
-
+    function drawProgress() {
+      const done = baseline.length + res.filter(Boolean).length;
+      count.textContent = `${done} / ${total} · ${Math.round(done / total * 100)}%`;
+      bar.style.width = done / total * 100 + '%';
+      $('.sess-top .bar').setAttribute('aria-valuenow', done);
+    }
+    function persistAnswer(r) {
+      if (!tracked) return;
+      steps[entryId] = Steps.record(steps[entryId], stepKey(r.item), r, Date.now());
+      Store.set('steps', steps);
+      let row = activity.find((e) => e.id === r.eventId);
+      if (!row) {
+        r.eventId = Date.now() + '-' + Math.random().toString(36).slice(2);
+        row = { id: r.eventId, session: sessionId, ts: Date.now(), day: todayKey(), kind: 'step', units: [context.unit], mode: context.mode, title, answers: 1, correct: 0 };
+        activity.push(row);
+      }
+      row.correct = r.ok ? 1 : 0;
+      Store.set('activity', activity);
+    }
+    function commitCompleted() {
+      if (reward) return;
+      if (onDone) onDone(accuracy());
+      reward = recordActivity({ ...context, session: sessionId, stepped: !!tracked, title }, tracked ? [] : res);
+    }
     function show() {
       answered = false;
-      fb.className = 'fb';
-      fb.innerHTML = '';
-      count.textContent = `${pos + 1} из ${items.length}`;
-      bar.style.width = (pos / items.length) * 100 + '%';
-      $('.sess-top .bar').setAttribute('aria-valuenow', pos);
-      area.innerHTML = '';
+      fb.className = 'fb'; fb.innerHTML = '';
+      drawProgress(); area.innerHTML = '';
       ctl = R[items[pos].t](area, items[pos].data, finish) || {};
       btn.style.display = ctl.check ? '' : 'none';
       btn.textContent = ctl.label || 'Проверить';
@@ -632,15 +692,15 @@
       const inp = $('input,textarea', area);
       if (inp && !matchMedia('(pointer: coarse)').matches) inp.focus();
     }
-
     function finish(r) {
       if (answered) return;
       answered = true;
       const it = items[pos];
       if (r.score == null) r.score = r.ok ? 1 : 0;
-      r.item = it;
-      res[pos] = r;
+      r.item = it; res[pos] = r;
       if (it.ref) (r.ok ? removeMistake : addMistake)(it.ref);
+      persistAnswer(r); drawProgress();
+      if (tracked && res.filter(Boolean).length === items.length) commitCompleted();
       const draw = () => {
         fb.className = 'fb ' + (r.ok ? 'good' : 'bad');
         fb.innerHTML = `<div class="verdict">${icon(r.ok ? 'check' : 'close')}${r.ok ? 'Верно' : 'Нужно поправить'}${r.note ? ` <small>(${esc(r.note)})</small>` : ''}</div>
@@ -649,41 +709,25 @@
             ${r.say ? `<button class="btn small say" type="button">${icon('volume')} Послушать</button>` : ''}
             ${!r.ok && r.override ? '<button class="btn small link ovr" type="button">Мой ответ тоже верный</button>' : ''}
           </div>`;
-        const s = $('.say', fb);
-        if (s) s.onclick = () => speak(r.say);
+        const s = $('.say', fb); if (s) s.onclick = () => speak(r.say);
         const o = $('.ovr', fb);
         if (o) o.onclick = () => {
-          r.ok = true;
-          r.score = 1;
+          r.ok = true; r.score = 1;
           if (it.ref) removeMistake(it.ref);
-          draw();
+          persistAnswer(r);
+          if (reward && onDone) onDone(accuracy());
+          draw(); updateNav();
         };
       };
       draw();
       if (r.say && settings.autoplay) speak(r.say);
-      btn.style.display = '';
-      btn.textContent = pos + 1 < items.length ? 'Далее →' : 'Результат';
-      btn.onclick = next;
-      btn.focus();
-      updateNav();
+      btn.style.display = ''; btn.textContent = pos + 1 < items.length ? 'Далее →' : 'Результат'; btn.onclick = next; btn.focus(); updateNav();
     }
-
-    function next() {
-      pos++;
-      if (pos < items.length) show();
-      else end();
-    }
-
+    function next() { pos++; if (pos < items.length) show(); else end(); }
     function end() {
       if (ended) return;
-      ended = true;
-      keyHandler = null;
-      bar.style.width = '100%';
-      $('.sess-top .bar').setAttribute('aria-valuenow', items.length);
-      const pct = Math.round((res.reduce((s, r) => s + r.score, 0) / res.length) * 100);
-      if (onDone) onDone(pct);
-      const reward = recordActivity({ ...context, title }, res);
-      const wrong = res.filter((r) => !r.ok);
+      ended = true; keyHandler = null; drawProgress(); commitCompleted();
+      const pct = accuracy(), wrong = results().filter((r) => !r.ok);
       const msg = pct >= 90 ? 'Хороший результат. Можно перейти к следующему упражнению.' : pct >= 70 ? 'Хороший результат. Осталось разобрать ошибки.' : pct >= 50 ? 'Есть над чем поработать. Повтори сложные задания.' : 'Вернись к правилу в книге и попробуй ещё раз.';
       $('.ex').innerHTML = `<div class="summary">
         <div class="bigpct">${pct}%</div><p>${msg}</p>
@@ -691,23 +735,19 @@
         ${wrong.length ? `<h3>Ошибки (${wrong.length})</h3><ul class="wronglist">${wrong.map((r) => `<li>${r.correct || esc(r.item.data.full || '')}${r.user ? `<div class="muted small">ваш ответ: ${esc(r.user)}</div>` : ''}</li>`).join('')}</ul>` : ''}
         <div class="actions">
           ${wrong.length ? '<button class="btn primary again-wrong" type="button">Повторить ошибки</button>' : ''}
-          <button class="btn again" type="button">Ещё раз</button>
-          <button class="btn ghost back" type="button">Назад</button>
+          <button class="btn again" type="button">Ещё раз</button><button class="btn ghost back" type="button">Назад</button>
         </div></div>`;
       const aw = $('.again-wrong');
       if (aw) aw.onclick = () => session({ title: title + ' · ошибки', back, items: shuffle(wrong.map((r) => r.item)), onDone: null });
-      $('.again').onclick = () => session({ title, back, items: shuffle(items), onDone, context });
+      $('.again').onclick = () => session({ title, back, items: shuffle(allItems), onDone, context });
       $('.back').onclick = () => go(back);
     }
-
     keyHandler = (e) => {
       const tag = e.target.tagName;
       if (e.key === 'Enter' && !e.shiftKey) {
         if (tag === 'BUTTON' || tag === 'A') return;
         if (btn.style.display !== 'none') { e.preventDefault(); btn.click(); }
-      } else if (!answered && ctl.keys && /^[1-9]$/.test(e.key) && tag !== 'INPUT' && tag !== 'TEXTAREA') {
-        ctl.keys(+e.key);
-      }
+      } else if (!answered && ctl.keys && /^[1-9]$/.test(e.key) && tag !== 'INPUT' && tag !== 'TEXTAREA') ctl.keys(+e.key);
     };
     show();
   }
@@ -743,6 +783,7 @@
     if (club.goals[day]) return D.units[club.goals[day].unit];
     const assigned = D.units[dailyPlan[day]];
     if (assigned) return assigned;
+    if (day >= course.since) return D.units[Course.next(course, day) || 145];
     const done = activity.find((e) => e.day === day && ['unit', 'writing'].includes(e.kind));
     if (done) return D.units[done.units[0]];
     const learned = new Set(activity.filter((e) => ['unit', 'writing'].includes(e.kind)).flatMap((e) => e.units));
@@ -752,10 +793,10 @@
     return latest ? D.units[latest.units[0] + 1] || D.units[145] : D.units[Store.get('last', 1)] || D.list[0];
   }
   function clubBoard() {
-    const ledger = clubLedger();
-    return `<section class="club-board" aria-label="Уровень практики и серия дней">
-      <div class="club-identity"><span class="club-monogram" aria-hidden="true">G<span>U</span></span><div><span class="club-kicker" lang="en">The Study Club</span><b>Уровень практики ${ledger.level}</b></div></div>
-      <div class="club-experience"><div><b>${ledger.xp} XP</b><span>до следующего уровня ${ledger.remaining} XP</span></div><div class="club-meter" role="progressbar" aria-label="До следующего уровня" aria-valuemin="0" aria-valuemax="200" aria-valuenow="${ledger.progress}"><i style="width:${ledger.progress / 2}%"></i></div></div>
+    const ledger = clubLedger(), rank = Course.rank(course, todayKey());
+    return `<section class="club-board" aria-label="Ранг, закрытые юниты и серия дней">
+      <div class="club-identity"><span class="club-monogram" aria-hidden="true">G<span>U</span></span><div><span class="club-kicker" lang="en">The Study Club</span><b lang="en">${rank.current.en}</b><span class="rank-caption">${rank.current.ru} · ${ledger.xp} XP</span><a class="rank-link" href="#/ranks">Лестница рангов →</a></div></div>
+      <div class="club-experience"><div><b>${rank.done} / 145 юнитов закрыто</b><span>${rank.next ? `До ${rank.next.en} — ${rank.remaining} ${plural(rank.remaining, 'юнит', 'юнита', 'юнитов')}` : 'Весь курс пройден'}</span></div><div class="club-meter" role="progressbar" aria-label="Закрытые юниты курса" aria-valuemin="0" aria-valuemax="145" aria-valuenow="${rank.done}"><i style="width:${rank.done / 145 * 100}%"></i></div></div>
       <div class="club-streak"><b>${ledger.streak}</b><span>${plural(ledger.streak, 'закрытый день', 'закрытых дня', 'закрытых дней')} подряд</span></div>
     </section>`;
   }
@@ -768,16 +809,19 @@
       <p>${ledger.weeks.length ? `${ledger.weeks.length} ${plural(ledger.weeks.length, 'недельная печать', 'недельные печати', 'недельных печатей')} в коллекции.` : 'Каждая полностью закрытая неделя добавляет новую печать.'}</p></section>`;
   }
   function goalList(goal, state) {
-    const rewarded = new Set(activity.filter((e) => e.day === todayKey() && ['unit', 'writing'].includes(e.kind)).map((e) => e.mode));
-    return `<ol class="goal-list" aria-label="Занятия на сегодня">${goal.required.map((t) => `<li><a class="${state.completed.includes(t) ? 'is-complete' : ''}" href="#/u/${goal.unit}/${t}"><span class="goal-check" aria-hidden="true">${state.completed.includes(t) ? icon('check') : ''}</span><span>${TYPES[t].name}</span><small>${state.completed.includes(t) ? 'готово' : rewarded.has(t) ? 'впереди' : '+10 XP'}</small></a></li>`).join('')}</ol>`;
+    return `<ol class="goal-list" aria-label="Занятия на сегодня">${goal.required.map((t) => {
+      const s = modeStatus(D.units[goal.unit], t);
+      return `<li><a class="${s.complete ? 'is-complete' : ''}" href="#/u/${goal.unit}/${t}"><span class="goal-check" aria-hidden="true">${s.complete ? icon('check') : ''}</span><span>${TYPES[t].name}</span><small>${s.complete ? 'готово' : s.done ? s.pct + '%' : s.done + '/' + s.total}</small></a></li>`;
+    }).join('')}</ol>`;
   }
   function rewardPanel(reward) {
     const day = todayKey(), state = dayState(day), goal = club.goals[day];
     const next = goal && !Study.isWeekend(day) ? goal.required.find((t) => !state.completed.includes(t)) : null;
     return `<div class="reward-panel${reward.closed ? ' just-closed' : ''}" role="status">
       ${reward.closed ? `<span class="day-stamp" lang="en">Day<br>complete</span>` : icon('check')}
-      <div><b>${reward.week ? 'Полная неделя — печать твоя!' : reward.closed ? 'День закрыт. Хорошая работа.' : 'Подход сохранён.'}</b>
+      <div><b>${reward.week ? 'Полная неделя — печать твоя!' : reward.closed ? Study.isWeekend(day) ? 'Повторение закрыто. Хорошая работа.' : `Юнит ${course.closed[day] || (goal && goal.unit)} закрыт. Хорошая работа.` : 'Подход сохранён.'}</b>
         <p>${reward.xp ? `+${reward.xp} XP · ` : ''}${next ? `${state.completed.filter((t) => goal.required.includes(t)).length} из ${goal.required.length} занятий. Следующее — «${TYPES[next].name}».` : 'Результат записан в дневник.'}</p>
+        ${reward.rank ? `<p class="rank-promoted">Новый ранг: <b lang="en">${reward.rank.en}</b> · ${reward.rank.ru}</p>` : ''}
         ${next ? `<a class="btn small primary" href="#/u/${goal.unit}/${next}">Следующее занятие ${icon('arrow')}</a>` : '<a href="#/calendar">Посмотреть неделю →</a>'}</div></div>`;
   }
   function todayPlan() {
@@ -786,19 +830,22 @@
     const state = dayState(day);
     const weekend = Study.isWeekend(day);
     const u = plannedUnit(day);
+    const allComplete = goal && unitCompletion(u).complete;
+    const canClaim = allComplete && !state.done && !Course.closedUnits(course, day).has(u.n) && day >= course.since;
+    const next = goal && goal.required.find((t) => !modeStatus(u, t).complete);
+    if (Course.rank(course, day).done === 145) return `<div class="today-plan"><span class="eyebrow" lang="en">The Study Club / King</span><h3>Курс закрыт</h3><p>Все 145 юнитов пройдены. Возвращайся к темам, которые хочется закрепить.</p><a class="btn" href="#/">Выбрать тему ${icon('arrow')}</a></div>`;
     return `<div class="today-plan">
       <span class="eyebrow">${dateLabel(day, { weekday: 'long', day: 'numeric', month: 'long' })}</span>
       <h3>${weekend ? 'Повторить неделю' : 'Юнит на сегодня'}</h3>
       ${state.done ? `<p class="plan-complete">${icon('check')} День закрыт</p>` : ''}
-      ${weekend ? `<p>${state.units.length ? `Вспомни ${state.units.length} ${plural(state.units.length, 'юнит', 'юнита', 'юнитов')}, которые закреплял в будни. В наборе будет задание из каждого.` : 'На этой неделе пока нет записанных юнитов. Завершай упражнения в будни — здесь появится набор для повторения.'}</p>
+      ${weekend ? `<p>${state.units.length ? `Вспомни ${state.units.length} ${plural(state.units.length, 'юнит', 'юнита', 'юнитов')}, которые закреплял в будни. В наборе будет задание из каждого.` : 'На этой неделе пока нет записанных юнитов. Проверяй ответы в будни — здесь появится набор для повторения.'}</p>
         ${state.units.length && !state.done ? '<p class="plan-help">+25 XP за полное повторение сегодня.</p>' : ''}
         ${state.units.length ? `<a class="btn primary" href="#/review/${day}">${state.done ? 'Повторить ещё раз' : 'Начать повторение'} ${icon('arrow')}</a>` : '<a class="btn" href="#/">Выбрать юнит</a>'}`
-        : `<label class="plan-label" for="today-unit">Один юнит после книги</label><select id="today-unit"${state.done ? ' disabled' : ''}>${D.list.map((item) => `<option value="${item.n}"${item.n === u.n ? ' selected' : ''}>${String(item.n).padStart(2, '0')} · ${esc(item.title)}</option>`).join('')}</select>
-        <label class="plan-label policy-label" for="goal-policy">${state.done ? 'Набор на следующие дни' : 'Набор занятий'}</label><select id="goal-policy"><option value="core"${club.policy === 'core' ? ' selected' : ''}>Основной набор · 4 занятия</option><option value="all"${club.policy === 'all' ? ' selected' : ''}>Все упражнения юнита</option></select>
+        : `<label class="plan-label" for="today-unit">Один юнит после книги</label><select id="today-unit"${state.done ? ' disabled' : ''}>${D.list.map((item) => `<option value="${item.n}"${item.n === u.n ? ' selected' : ''}${Course.closedUnits(course, day).has(item.n) && item.n !== u.n ? ' disabled' : ''}>${String(item.n).padStart(2, '0')} · ${esc(item.title)}</option>`).join('')}</select>
         <div class="goal-heading"><b>${state.completed.filter((t) => goal.required.includes(t)).length} / ${goal.required.length} завершено</b><span>+20 XP за день</span></div>
         ${goalList(goal, state)}
-        <p class="plan-help">За другие режимы тоже получишь XP. Повтор пройденного режима сохраняет результат.</p>
-        <a class="btn primary today-start" href="#/u/${u.n}${state.done ? '' : '/' + (goal.required.find((t) => !state.completed.includes(t)) || goal.required[0])}">${state.done ? 'Продолжить практику' : 'Следующее занятие'} ${icon('arrow')}</a>`}
+        <p class="plan-help">Все упражнения юнита, по частям. Один закрытый юнит в день; другая практика сохраняется отдельно.</p>
+        ${canClaim ? '<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>' : `<a class="btn primary today-start" href="#/u/${u.n}${next && !state.done ? '/' + next : ''}">${state.done ? 'Продолжить практику' : next ? 'Следующее занятие' : 'Открыть юнит'} ${icon('arrow')}</a>`}`}
     </div>`;
   }
   function wireTodayPlan() {
@@ -807,18 +854,15 @@
     select.onchange = () => {
       dailyPlan[todayKey()] = +select.value;
       Store.set('dailyPlan', dailyPlan);
-      club.goals[todayKey()] = { unit: +select.value, required: Club.requiredModes(unitTypes(D.units[select.value]), club.policy) };
+      club.goals[todayKey()] = { unit: +select.value, required: unitTypes(D.units[select.value]) };
       saveClub(); route();
-    };
-    $('#goal-policy').onchange = (e) => {
-      updatePolicy(e.target.value); route();
     };
   }
   function calendarPage(day) {
     ensureGoal();
     const week = Study.weekStart(day), today = todayKey();
     const stats = Study.summary(activity, day);
-    const rows = activity.filter((e) => e.day === day);
+    const rows = Study.approaches(activity, day);
     const state = dayState(day);
     const units = Study.weekUnits(activity, day);
     app.innerHTML = `<div class="calendar-page">
@@ -832,7 +876,7 @@
             <a class="btn ghost small" href="#/calendar/${today}">Сегодня</a>
             <a class="btn ghost" href="#/calendar/${Study.shift(day, 7)}" aria-label="Следующая неделя">→</a></div></div>
           ${weekGrid(day, day)}
-          <p class="calendar-legend"><span>${icon('check')} план выполнен</span><span><b>·</b> другая практика</span><span>— без записи</span></p>
+          <p class="calendar-legend"><span>${icon('check')} план выполнен</span><span><b>·</b> была практика</span><span>— без записи</span></p>
           <div class="week-stats" aria-label="Статистика за выбранную неделю">
             <div><b>${stats.days}<small>/ 7</small></b><span>${plural(stats.days, 'активный день', 'активных дня', 'активных дней')}</span></div>
             <div><b>${stats.sessions}</b><span>${plural(stats.sessions, 'подход', 'подхода', 'подходов')}</span></div>
@@ -841,15 +885,15 @@
           </div>
           <p class="stats-note">${stats.answers ? `${stats.correct} из ${stats.answers} ${plural(stats.answers, 'ответа', 'ответов', 'ответов')} полностью верны. ` : ''}Письмо учитывается как подход, без оценки правильности.</p>
           <section class="day-history" aria-labelledby="day-title"><div class="history-heading"><h2 id="day-title">${dateLabel(day, { weekday: 'long', day: 'numeric', month: 'long' })}</h2>${state.done ? '<span class="status-done">План выполнен</span>' : ''}</div>
-            ${rows.length ? `<ol class="activity-list">${rows.map((e) => `<li><div><b>${esc(e.title || (e.kind === 'writing' ? 'Свободное письмо' : 'Практика'))}</b><span>${e.kind === 'writing' ? 'Сохранён текст · без оценки' : `${e.answers} ${plural(e.answers, 'задание', 'задания', 'заданий')} · ${e.correct} верно`}</span></div>${Number.isFinite(e.ts) ? `<time datetime="${new Date(e.ts).toISOString()}">${new Date(e.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</time>` : ''}</li>`).join('')}</ol>`
-              : `<p class="history-empty">${day > today ? 'Занятие впереди. После завершения оно появится здесь.' : 'Завершённых подходов в этот день нет.'}</p>`}
+            ${rows.length ? `<ol class="activity-list">${rows.map((e) => `<li><div><b>${esc(e.title || (e.kind === 'writing' ? 'Свободное письмо' : 'Практика'))}</b><span>${e.kind === 'writing' ? 'Сохранён текст · без оценки' : e.kind === 'claim' ? 'Все упражнения выполнены ранее' : `${e.partial ? 'Часть занятия · ' : ''}${e.answers} ${plural(e.answers, 'задание', 'задания', 'заданий')} · ${e.correct} верно`}</span></div>${Number.isFinite(e.ts) ? `<time datetime="${new Date(e.ts).toISOString()}">${new Date(e.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</time>` : ''}</li>`).join('')}</ol>`
+              : `<p class="history-empty">${day > today ? 'Занятие впереди. Первый ответ появится здесь.' : 'В этот день пока нет записанных занятий.'}</p>`}
           </section>
           <p class="history-note">История накапливается с этого обновления. Старые лучшие результаты сохранены в юнитах. Даты — по времени устройства.</p>
         </section>
         <aside class="calendar-aside" aria-label="Занятие и повторение">${todayPlan()}
           ${clubAwards()}
           <div class="week-topics"><span class="eyebrow">Для повторения · ${weekLabel(week)}</span><h3>Юниты этой недели</h3>
-            ${units.length ? `<div class="review-units">${units.map((n) => `<a href="#/u/${n}"><small>${String(n).padStart(2, '0')}</small><span lang="en">${esc(D.units[n].title)}</span></a>`).join('')}</div><a class="btn" href="#/review/${week}">Повторить эти юниты ${icon('arrow')}</a>` : '<p>Здесь появятся юниты с завершёнными подходами с понедельника по пятницу.</p>'}
+            ${units.length ? `<div class="review-units">${units.map((n) => `<a href="#/u/${n}"><small>${String(n).padStart(2, '0')}</small><span lang="en">${esc(D.units[n].title)}</span></a>`).join('')}</div><a class="btn" href="#/review/${week}">Повторить эти юниты ${icon('arrow')}</a>` : '<p>Здесь появятся юниты, по которым проверен хотя бы один ответ в будни.</p>'}
           </div>
         </aside>
       </div></div>`;
@@ -858,7 +902,7 @@
   function reviewPage(day) {
     const week = Study.weekStart(day), units = Study.weekUnits(activity, day);
     if (!units.length) {
-      app.innerHTML = `<div class="page-narrow"><span class="eyebrow">Повторение / ${weekLabel(day)}</span><h1>Пока нечего повторять</h1><p class="page-intro">На этой неделе нет записанных подходов к юнитам в будни. Заверши упражнение после книги — его тема войдёт в недельное повторение.</p><a class="btn primary" href="#/">Выбрать юнит ${icon('arrow')}</a><a class="btn ghost" href="#/calendar/${day}">К календарю</a></div>`;
+      app.innerHTML = `<div class="page-narrow"><span class="eyebrow">Повторение / ${weekLabel(day)}</span><h1>Пока нечего повторять</h1><p class="page-intro">На этой неделе нет записанных подходов к юнитам в будни. Проверь хотя бы один ответ после книги — его тема войдёт в недельное повторение.</p><a class="btn primary" href="#/">Выбрать юнит ${icon('arrow')}</a><a class="btn ghost" href="#/calendar/${day}">К календарю</a></div>`;
       return;
     }
     // One form of each example; every studied unit is covered before filling the set.
@@ -872,19 +916,19 @@
   }
 
   function unitRow(u) {
-    const pct = unitPct(u);
-    const hasProgress = unitTypes(u).some((t) => getProg(u.n, t));
+    const state = unitCompletion(u), pct = state.pct;
+    const hasProgress = state.done > 0;
     return `<a class="urow" href="#/u/${u.n}">
       <span class="unum">${String(u.n).padStart(2, '0')}</span><span class="utitle" lang="en">${esc(u.title)}</span>
       ${book[u.n] ? `<span class="bk" role="img" aria-label="Пройдено в книге" title="Пройдено в книге">${icon('check')}</span>` : ''}
-      ${hasProgress ? `<span class="upct" title="Средний лучший результат по режимам">${pct}%</span>` : ''}${bar(pct)}</a>`;
+      ${hasProgress ? `<span class="upct" title="Выполнено ${state.done} из ${state.total} заданий">${pct}%</span>` : ''}${bar(pct)}</a>`;
   }
 
   function home() {
     ensureGoal();
     const last = D.units[Store.get('last', 0)];
     const current = last || D.list[0];
-    const started = D.list.filter((u) => unitTypes(u).some((t) => getProg(u.n, t))).length;
+    const started = D.list.filter((u) => unitCompletion(u).done > 0).length;
     const inBook = D.list.filter((u) => book[u.n]).length;
     let filter = Store.get('homeFilter', 'all') === 'book' ? 'book' : 'all';
     app.innerHTML = `
@@ -894,7 +938,7 @@
           <p>Пройди юнит у Мёрфи, затем закрепи его здесь.<br>Выбери упражнение и возвращайся к сложным местам.</p></div>
         <div class="stats" aria-label="Твой прогресс">
           <div><b>${inBook}<span class="sr-only"> из ${D.list.length}</span></b><span>пройдено в книге</span></div>
-          <div><b>${started}</b><span>${plural(started, 'юнит', 'юнита', 'юнитов')} с результатом</span></div>
+          <div><b>${started}</b><span>${plural(started, 'юнит', 'юнита', 'юнитов')} в практике</span></div>
           <div><b>${mistakes.length}</b><span>${plural(mistakes.length, 'ошибка', 'ошибки', 'ошибок')} на повтор</span></div>
         </div>
       </section>
@@ -955,12 +999,12 @@
 
   function unitPage(u) {
     prep(u);
-    const goal = ensureGoal(u.n), state = dayState(todayKey());
+    const goal = ensureGoal(), state = dayState(todayKey());
     Store.set('last', u.n);
     const prev = D.units[u.n - 1], next = D.units[u.n + 1];
     const groups = {};
     unitTypes(u).forEach((t) => (groups[TYPES[t].group] = groups[TYPES[t].group] || []).push(t));
-    const hasProgress = unitTypes(u).some((t) => getProg(u.n, t));
+    const completion = unitCompletion(u), claimed = Course.closedUnits(course, todayKey()).has(u.n);
     app.innerHTML = `
       <div class="crumbs"><a href="#/">Оглавление</a> / <span lang="en">${esc(u.section.en)}</span></div>
       <div class="unit-heading"><span class="unit-number"><small>UNIT</small>${String(u.n).padStart(2, '0')}</span><h1 lang="en">${esc(u.title)}</h1></div>
@@ -971,16 +1015,20 @@
           <p class="muted small">Сначала прочитай правило и сделай задания в книге. Здесь — дополнительная практика.</p>
         </aside>
         <section class="unit-practice" aria-labelledby="practice-title">
-          <div class="practice-head"><h2 id="practice-title">Закрепить тему</h2><span class="muted small">${hasProgress ? `Средний лучший результат: ${unitPct(u)}%` : 'Выбери упражнение'}</span></div>
-          ${goal && goal.unit === u.n ? `<section class="unit-goal" aria-label="Дневной набор"><div class="goal-heading"><b>${state.done ? 'День закрыт' : `Дневной набор · ${state.completed.filter((t) => goal.required.includes(t)).length} / ${goal.required.length}`}</b><a href="#/calendar">Дневник →</a></div>${goalList(goal, state)}</section>` : goal && !state.done ? '<div class="unit-goal-note"><span>Можно сделать этот юнит целью на сегодня.</span><button class="btn small make-today-unit" type="button">Выбрать на сегодня</button></div>' : ''}
+          <div class="practice-head"><h2 id="practice-title">Закрепить тему</h2><span class="unit-completion">${completion.pct}% выполнено <small>${completion.done} / ${completion.total} заданий</small></span></div>
+          <p class="completion-help">Выполнение сохраняется после каждого ответа. Правильность показывается отдельно.</p>
+          ${goal && goal.unit === u.n ? `<section class="unit-goal" aria-label="Дневной набор"><div class="goal-heading"><b>${state.done ? 'День закрыт' : `Все режимы · ${state.completed.length} / ${goal.required.length}`}</b><a href="#/calendar">Дневник →</a></div>${goalList(goal, state)}${completion.complete && !state.done && !claimed ? '<button class="btn primary small claim-unit" type="button">Закрыть юнит сегодня</button>' : ''}</section>` : `<div class="unit-goal-note"><span>${claimed ? 'Юнит уже закрыт. Можно повторять.' : course.closed[todayKey()] ? `Сегодня закрыт Unit ${course.closed[todayKey()]}. Здесь — свободная практика.` : goal ? `Свободная практика. Цель на сегодня — Unit ${goal.unit}.` : 'Свободная практика выходного. Все ответы сохраняются.'}</span>${goal && !state.done && !claimed ? '<button class="btn small make-today-unit" type="button">Выбрать на сегодня</button>' : ''}</div>`}
           ${Object.keys(GROUPS).filter((g) => groups[g]).map((g) => `
             <h3 class="grp">${GROUPS[g]}</h3>
             <div class="grid">${groups[g].map((t) => {
-              const p = getProg(u.n, t), n = available(u, t);
+              const p = getProg(u.n, t), n = available(u, t), s = modeStatus(u, t);
               return `<a class="excard" href="#/u/${u.n}/${t}">
                 <span class="ico">${icon(TYPES[t].icon)}</span><span class="nm">${TYPES[t].name}</span>
                 <span class="ds">${TYPES[t].desc}${t === 'write' ? '' : ` · ${n} ${plural(n, 'задание', 'задания', 'заданий')}`}</span>
-                ${p ? `<span class="sc ${p.best >= 80 ? 'hi' : ''}" title="Лучший результат">${t === 'write' ? '✓' : p.best + '%'}</span>` : ''}
+                <span class="sc ${s.complete ? 'hi' : ''}" title="Процент выполнения">${s.complete ? '✓ ' : ''}${s.pct}%</span>
+                <span class="exercise-progress"><b>${s.done} / ${s.total} выполнено</b><span>${s.complete ? 'Повторить' : s.done ? 'Продолжить' : 'Начать'}</span></span>
+                <span class="exercise-meter" aria-hidden="true"><i style="width:${s.pct}%"></i></span>
+                ${p && t !== 'write' ? `<span class="exercise-accuracy">Лучший результат: ${p.best}%</span>` : ''}
                 ${icon('arrow').replace('class="icon"', 'class="icon ex-arrow"')}
               </a>`;
             }).join('')}</div>`).join('')}
@@ -997,7 +1045,7 @@
     };
     const makeToday = $('.make-today-unit');
     if (makeToday) makeToday.onclick = () => {
-      club.goals[todayKey()] = { unit: u.n, required: Club.requiredModes(unitTypes(u), club.policy) };
+      club.goals[todayKey()] = { unit: u.n, required: unitTypes(u) };
       dailyPlan[todayKey()] = u.n;
       Store.set('dailyPlan', dailyPlan); saveClub(); route();
     };
@@ -1005,7 +1053,7 @@
 
   function startUnit(u, t) {
     if (!TYPES[t] || !available(u, t)) return go('#/u/' + u.n);
-    ensureGoal(u.n);
+    ensureGoal();
     Store.set('last', u.n);
     if (t === 'write') return writePage(u);
     session({
@@ -1054,7 +1102,7 @@
       if ((ta.value.match(/[A-Za-z']+/g) || []).length < 15) { toast('Напишите хотя бы 15 слов'); return; }
       saveProg(u.n, 'write', 100);
       const reward = recordActivity({ kind: 'writing', unit: u.n, mode: 'write', title: `Unit ${u.n} · Свободное письмо` });
-      toast(reward.closed ? `День закрыт · +${reward.xp} XP` : reward.xp ? `Текст сохранён · +${reward.xp} XP` : 'Текст сохранён');
+      toast(reward.rank ? `Юнит ${u.n} закрыт · ${reward.rank.en} · +${reward.xp} XP` : reward.closed ? `День закрыт · +${reward.xp} XP` : reward.xp ? `Текст сохранён · +${reward.xp} XP` : 'Текст сохранён');
       go('#/u/' + u.n);
     };
   }
@@ -1156,6 +1204,15 @@
     session({ title: L.title, back: '#/pron', items, onDone: (pct) => saveProg('lab', k, pct) });
   }
 
+  function ranksPage() {
+    const rank = Course.rank(course, todayKey());
+    app.innerHTML = `<div class="page-narrow ranks-page"><span class="eyebrow" lang="en">The Study Club</span><h1>Лестница рангов</h1>
+      <p class="page-intro">${rank.done} из 145 юнитов закрыто. ${rank.next ? `Следующий ранг — ${rank.next.en}, осталось ${rank.remaining} ${plural(rank.remaining, 'юнит', 'юнита', 'юнитов')}.` : 'Ты прошёл весь курс.'}</p>
+      <p class="rank-rules">Все упражнения юнита, по частям. Один выбранный юнит в будний день. Пройденное в книге и XP учитываются отдельно.</p>
+      <ol class="rank-ladder">${Course.RANKS.map((r, i) => `<li class="${r.en === rank.current.en ? 'is-current' : r.at <= rank.done ? 'is-earned' : ''}"><span class="rank-index">${String(i + 1).padStart(2, '0')}</span><div><b lang="en">${r.en}</b><span>${r.ru}</span></div><span class="rank-threshold">${r.at} ${plural(r.at, 'юнит', 'юнита', 'юнитов')}<small>${r.en === rank.current.en ? 'Твой ранг' : r.at <= rank.done ? 'Открыт' : 'Впереди'}</small></span></li>`).join('')}</ol>
+      <p class="muted small">Игровая лестница по мотивам английских сословий и титулов.</p><a class="btn ghost" href="#/calendar">Вернуться в дневник →</a></div>`;
+  }
+
   function settingsPage() {
     loadVoices();
     app.innerHTML = `<div class="page-narrow">
@@ -1165,9 +1222,10 @@
           <select class="theme"><option value="light">Светлая бумага</option><option value="dark">Тёмная</option><option value="system">Как в системе</option></select></label>
       </div>
       <div class="card form"><h2>Ежедневный план</h2>
-        <label class="row">Будний набор: <select class="routine"><option value="core">Основной набор · 4 занятия</option><option value="all">Все упражнения юнита</option></select></label>
-        <p class="muted small">Основной набор: впиши форму, перефразируй, письмо и диктант. Выбор применяется к незакрытому сегодняшнему дню и следующим дням.</p>
-        <p class="muted small">10 XP за новый режим дня · 20 XP за закрытый будний план · 25 XP за повторение выходного · 50 XP за полную неделю. Каждые 200 XP — новый уровень практики.</p>
+        <p>Все упражнения выбранного юнита, по частям. Не более одного закрытого юнита в будний день; в выходные — повторение недели.</p>
+        <p class="muted small">Следующий юнит курса: ${Course.next(course, todayKey()) || 'все пройдены'}. Предыдущие темы доступны для свободной практики. Ранг растёт за разные закрытые юниты.</p>
+        <p class="muted small">10 XP за новый завершённый режим дня · 20 XP за закрытый будний юнит · 25 XP за повторение выходного · 50 XP за полную неделю.</p>
+        <a href="#/ranks">Лестница рангов →</a>
       </div>
       <div class="card form"><h2>Озвучка</h2>
         <label class="row">Акцент:
@@ -1191,8 +1249,6 @@
       </div></div>`;
     $('.theme').value = ['light', 'dark', 'system'].includes(settings.theme) ? settings.theme : 'light';
     $('.theme').onchange = (e) => { settings.theme = e.target.value; saveSettings(); applyTheme(); };
-    $('.routine').value = club.policy;
-    $('.routine').onchange = (e) => updatePolicy(e.target.value);
     $('.import-trigger').onclick = () => $('.import').click();
     $('.accent').value = settings.accent;
     $('.voice').value = settings.voice;
@@ -1259,8 +1315,16 @@
     else if (p[0] === 'mix') mixPage();
     else if (p[0] === 'mistakes') mistakesPage();
     else if (p[0] === 'pron') (p[1] ? labRun(p[1]) : labPage());
+    else if (p[0] === 'ranks') ranksPage();
     else if (p[0] === 'settings') settingsPage();
     else home();
+    const claim = $('.claim-unit');
+    if (claim) claim.onclick = () => {
+      const goal = ensureGoal();
+      const reward = recordActivity({ kind: 'claim', unit: goal.unit, title: `Unit ${goal.unit} · Закрытие юнита` });
+      toast(reward.rank ? `Юнит закрыт · новый ранг ${reward.rank.en}` : `Юнит закрыт · +${reward.xp} XP`);
+      route();
+    };
     updateNav();
     window.scrollTo(0, 0);
   }

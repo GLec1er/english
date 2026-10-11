@@ -19,14 +19,15 @@
     });
     return result;
   }
-  function dayStatus(events, day, club) {
+  function dayStatus(events, day, club, course) {
     const base = Study.dayStatus(events, day), goal = club.goals[day];
     if (Study.isWeekend(day) || day < club.since) return { ...base, required: [], completed: [], unit: null };
     const completed = [...new Set(events.filter((e) => e.day === day && ['unit', 'writing'].includes(e.kind) && goal && e.units.includes(goal.unit)).map((e) => e.mode).filter((t) => MODES.includes(t)))];
     const required = goal ? goal.required : [];
+    if (course && day >= course.since) return { ...base, done: !!course.closed[day], required, completed, unit: course.closed[day] || (goal ? goal.unit : null) };
     return { ...base, done: required.length > 0 && required.every((t) => completed.includes(t)), required, completed, unit: goal ? goal.unit : null };
   }
-  function ledger(events, club, today) {
+  function ledger(events, club, today, course) {
     const past = events.filter((e) => e.day <= today);
     const rows = past.filter((e) => e.day >= club.since);
     const modes = new Set();
@@ -34,8 +35,8 @@
       if (['unit', 'writing'].includes(e.kind) && MODES.includes(e.mode)) modes.add(e.day + ':' + e.mode);
     });
     let xp = modes.size * 10;
-    const days = [...new Set(rows.map((e) => e.day))].sort();
-    const closed = days.filter((day) => dayStatus(past, day, club).done);
+    const days = [...new Set([...rows.map((e) => e.day), ...Object.keys(course ? course.closed : {}).filter((day) => day >= club.since && day <= today)])].sort();
+    const closed = days.filter((day) => dayStatus(past, day, club, course).done);
     closed.forEach((day) => { xp += Study.isWeekend(day) ? 25 : 20; });
     const weeks = [], visited = new Set();
     let weekendPair = false;
@@ -45,13 +46,13 @@
       visited.add(week);
       const dates = Study.weekDays(week);
       if (dates[6] > today) return;
-      if (dates.slice(5).every((d) => dayStatus(past, d, club).done)) weekendPair = true;
-      if (dates.every((d) => dayStatus(past, d, club).done)) { weeks.push(week); xp += 50; }
+      if (dates.slice(5).every((d) => dayStatus(past, d, club, course).done)) weekendPair = true;
+      if (dates.every((d) => dayStatus(past, d, club, course).done)) { weeks.push(week); xp += 50; }
     });
-    let streak = 0, cursor = dayStatus(past, today, club).done ? today : Study.shift(today, -1);
+    let streak = 0, cursor = dayStatus(past, today, club, course).done ? today : Study.shift(today, -1);
     while (cursor >= club.since) {
       if (Study.isWeekend(cursor) && !Study.weekUnits(past, cursor).length) { cursor = Study.shift(cursor, -1); continue; }
-      if (!dayStatus(past, cursor, club).done) break;
+      if (!dayStatus(past, cursor, club, course).done) break;
       streak++;
       cursor = Study.shift(cursor, -1);
     }
