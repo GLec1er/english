@@ -26,11 +26,11 @@
     return events.filter((e) => {
       if (!e || typeof e.id !== 'string' || !e.id || seen.has(e.id) || !date(e.day)) return false;
       if (e.ts != null && (!Number.isFinite(e.ts) || !Number.isFinite(new Date(e.ts).getTime()))) return false;
-      if (!['unit', 'writing', 'practice', 'review', 'step', 'claim'].includes(e.kind)) return false;
+      if (!['unit', 'writing', 'practice', 'review', 'step', 'claim', 'exam'].includes(e.kind)) return false;
       if (e.session != null && (typeof e.session !== 'string' || !e.session || e.session.length > 100)) return false;
       if (!Array.isArray(e.units) || e.units.some((n) => !Number.isInteger(n) || n < 1 || n > 145)) return false;
       if (!Number.isInteger(e.answers) || !Number.isInteger(e.correct) || e.answers < 0 || e.correct < 0 || e.correct > e.answers) return false;
-      if (['unit', 'writing', 'step', 'claim'].includes(e.kind) && e.units.length !== 1) return false;
+      if (['unit', 'writing', 'step', 'claim', 'exam'].includes(e.kind) && e.units.length !== 1) return false;
       if (e.kind === 'step' && !['mc','fill','order','err','tr','lgap','dict','speak'].includes(e.mode)) return false;
       if (e.kind === 'review' && (!date(e.week) || weekStart(e.week) !== e.week)) return false;
       seen.add(e.id);
@@ -39,7 +39,7 @@
   }
   function weekUnits(events, key) {
     const start = weekStart(key), friday = shift(start, 4);
-    return [...new Set(events.filter((e) => e.day >= start && e.day <= friday && ['unit', 'writing', 'step', 'claim'].includes(e.kind)).flatMap((e) => e.units))].sort((a, b) => a - b);
+    return [...new Set(events.filter((e) => e.day >= start && e.day <= friday && ['unit', 'writing', 'step', 'claim', 'exam'].includes(e.kind)).flatMap((e) => e.units))].sort((a, b) => a - b);
   }
   function summary(events, key) {
     const start = weekStart(key), end = shift(start, 6);
