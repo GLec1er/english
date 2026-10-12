@@ -2872,12 +2872,20 @@
         [
           "Tom promised he would help me.",
           "Том обещал мне помочь.",
-          "В пересказе обещания will меняется на would; promised to help — другой допустимый способ передать то же обещание."
+          "В пересказе обещания will меняется на would; promised to help — другой допустимый способ. Me или you зависит от того, кому Том обещал помощь и кто пересказывает его слова. Адресат в условии не указан, поэтому оба варианта допустимы.",
+          [
+            "Tom promised he would help you.",
+            "Tom promised that he would help you.",
+            "Tom promised to help you."
+          ]
         ],
         [
           "If I had a lot of money, I would travel.",
           "Если бы у меня было много денег, я бы путешествовал.",
-          "If + Past simple задаёт нереальное условие; would + travel — воображаемый результат, не обычный прогноз."
+          "If + Past simple задаёт нереальное условие; would + travel — воображаемый результат. Можно уточнить, например, travel a lot — много путешествовать: это сохраняет нужную конструкцию и смысл задания.",
+          [
+            "If I had a lot of money, I would travel a lot."
+          ]
         ]
       ],
       "w": [

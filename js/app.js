@@ -333,6 +333,7 @@
     const data = kind === 'gap' ? u.gaps[i] : kind === 'err' ? u.errs[i] : u.trs[i];
     const item = { t, data, ref: { u: u.n, k: kind, i } };
     if (kind === 'gap') item.data = { ...data, expectedAnswers: Notes.answers(item), grammarAnswers: Notes.answers({ ...item, t: 'fill' }) };
+    if (kind === 'tr') item.data = { ...data, expectedAnswers: Notes.answers(item) };
     if (t === 'order') item.data.orderAnswers = Notes.orderAnswers(item);
     return item;
   }
@@ -528,7 +529,7 @@
           const v = ta.value;
           if (!v.trim()) { toast('Напишите ответ'); return; }
           ta.disabled = true;
-          finish({ ok: same(v, t.a), correct: t.a.map(esc).join('<br><small>или:</small> '), say: t.a[0], user: v, override: true });
+          finish({ ok: same(v, t.expectedAnswers || t.a), correct: t.a.map(esc).join('<br><small>или:</small> '), say: t.a[0], user: v, override: true });
         },
       };
     },
