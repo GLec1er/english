@@ -3,6 +3,7 @@
   'use strict';
 
   const D = window.EGIU;
+  const Notes = window.EGIUNotes;
   const app = document.getElementById('app');
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -321,7 +322,10 @@
   function makeItem(t, u, kind, i) {
     prep(u);
     const data = kind === 'gap' ? u.gaps[i] : kind === 'err' ? u.errs[i] : u.trs[i];
-    return { t, data, ref: { u: u.n, k: kind, i } };
+    const item = { t, data, ref: { u: u.n, k: kind, i } };
+    if (kind === 'gap') item.data = { ...data, expectedAnswers: Notes.answers(item), grammarAnswers: Notes.answers({ ...item, t: 'fill' }) };
+    if (t === 'order') item.data.orderAnswers = Notes.orderAnswers(item);
+    return item;
   }
 
   function unitItems(u, t, random = true) {
@@ -401,14 +405,15 @@
         <div class="opts">${opts.map((o, i) => `<button class="opt" type="button"><kbd>${i + 1}</kbd>${esc(showOpt(o))}</button>`).join('')}</div>`;
       const btns = $$('.opt', area);
       const choose = (i) => {
-        const ok = opts[i] === g.correct;
+        const valid = (o) => same(o, g.expectedAnswers || g.answers);
+        const ok = valid(opts[i]);
         btns.forEach((b, k) => {
           b.disabled = true;
-          if (opts[k] === g.correct) b.classList.add('right');
+          if (valid(opts[k])) b.classList.add('right');
         });
         if (!ok) btns[i].classList.add('wrong');
         $('.gap', area).textContent = showOpt(g.correct);
-        finish({ ok, correct: hl(g), say: g.full });
+        finish({ ok, correct: hl(g), say: g.full, user: opts[i] });
       };
       btns.forEach((b, i) => (b.onclick = () => choose(i)));
       return { keys: (n) => n <= opts.length && choose(n - 1) };
@@ -431,7 +436,9 @@
         check() {
           const v = inp.value;
           inp.disabled = true;
-          finish({ ok: same(v, g.answers), correct: hl(g), say: listenMode ? null : g.full, user: v, override: true });
+          const ok = same(v, g.expectedAnswers || g.answers);
+          const note = listenMode && !ok && same(v, g.grammarAnswers || g.answers) ? 'форма возможна, но в записи звучит другой вариант' : null;
+          finish({ ok, correct: hl(g), say: listenMode ? null : g.full, user: v, override: true, note });
         },
       };
     },
@@ -480,7 +487,7 @@
       return {
         check() {
           if (bank.length) { toast('Используйте все слова'); return; }
-          const ok = ans.map((x) => x.t).join(' ') === body;
+          const ok = same(ans.map((x) => x.t).join(' ') + end, g.orderAnswers || [full]);
           $$('.tok', area).forEach((b) => (b.disabled = true));
           finish({ ok, correct: esc(full), say: full, user: ans.map((x) => x.t).join(' ') + end });
         },
@@ -708,7 +715,7 @@
           <div class="fb-actions">
             ${r.say ? `<button class="btn small say" type="button">${icon('volume')} Послушать</button>` : ''}
             ${!r.ok && r.override ? '<button class="btn small link ovr" type="button">Мой ответ тоже верный</button>' : ''}
-          </div>`;
+          </div>${Notes.render(Notes.forResult(it, r))}`;
         const s = $('.say', fb); if (s) s.onclick = () => speak(r.say);
         const o = $('.ovr', fb);
         if (o) o.onclick = () => {
@@ -1079,7 +1086,8 @@
           <button class="btn small listen-me" type="button">${icon('volume')} Прочитать мой текст</button>
           <button class="btn small show-model" type="button">Показать пример</button>
         </div>
-        <div class="model" hidden><b>Пример:</b> ${esc(model || '')}
+        <div class="model" hidden><b>Пример:</b> <span lang="en">${esc(model || '')}</span>
+          ${Notes.render(Notes.forResult({ref:{u:u.n,k:'write',i:0},data:{full:model}}, {ok:true}))}
           <div><button class="btn small say-model" type="button">${icon('volume')} Послушать пример</button></div></div>
         <details class="check"><summary>Проверь себя</summary><ul>
           <li>В каждом предложении есть подлежащее и сказуемое?</li>
@@ -1198,9 +1206,9 @@
     const L = D.lab[k];
     if (!L) return go('#/pron');
     let items;
-    if (L.kind === 'snd') items = shuffle(L.items).slice(0, 15).map(([word, cat]) => ({ t: 'snd', data: { word, cat, cats: L.cats, task: L.task } }));
-    else if (L.kind === 'pair') items = shuffle(L.items).slice(0, 12).map(([a, b]) => ({ t: 'pair', data: { a, b } }));
-    else items = shuffle(L.items).slice(0, 10).map((w) => ({ t: 'speak', data: { full: w } }));
+    if (L.kind === 'snd') items = shuffle(L.items).slice(0, 15).map(([word, cat]) => ({ t: 'snd', data: { word, cat, cats: L.cats, task: L.task }, noteRef:{lab:k} }));
+    else if (L.kind === 'pair') items = shuffle(L.items).slice(0, 12).map(([a, b]) => ({ t: 'pair', data: { a, b }, noteRef:{lab:k} }));
+    else items = shuffle(L.items).slice(0, 10).map((w) => ({ t: 'speak', data: { full: w }, noteRef:{lab:k} }));
     session({ title: L.title, back: '#/pron', items, onDone: (pct) => saveProg('lab', k, pct) });
   }
 
