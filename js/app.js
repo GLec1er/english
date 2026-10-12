@@ -4,6 +4,7 @@
 
   const D = window.EGIU;
   const Notes = window.EGIUNotes;
+  const Exam = window.EGIUExam, Review = window.EGIUReview;
   const app = document.getElementById('app');
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -74,6 +75,8 @@
   applyTheme();
   themeMedia.addEventListener('change', applyTheme);
 
+  let exams = Exam.normalize(Store.get('exams', {}));
+  const saveExams = () => Store.set('exams', exams);
   const progress = Store.get('progress', {});
   const getProg = (key, t) => (progress[key] && progress[key][t]) || null;
   function saveProg(key, t, pct) {
@@ -128,7 +131,7 @@
   function closeGoal(unit) {
     const goal = club.goals[todayKey()];
     if (!goal) return;
-    course = Course.close(course, todayKey(), unit, unitCompletion(D.units[unit]).complete, goal.unit);
+    course = Course.close(course, todayKey(), unit, Exam.canClose(exams, unit, unitCompletion(D.units[unit]).complete), goal.unit);
     saveCourse();
   }
   function recordActivity(context, results = []) {
@@ -143,23 +146,29 @@
       answers: context.stepped ? 0 : results.length, correct: context.stepped ? 0 : results.filter((r) => r.ok).length,
       week: context.week || null, title: context.title || '', mode: context.mode || null });
     Store.set('activity', activity);
-    if (context.unit && ['unit', 'writing', 'claim'].includes(context.kind)) closeGoal(context.unit);
+    if (context.unit && (context.kind === 'claim' || (context.kind === 'exam' && context.passed === true))) closeGoal(context.unit);
     const after = clubLedger();
     const rank = Course.rank(course, todayKey());
     return { id, xp: after.xp - before.xp, closed: !wasDone && dayState(todayKey()).done, week: after.weeks.length > before.weeks.length, rank: rank.current.en !== beforeRank ? rank.current : null };
   }
-  let mistakes = Store.get('mistakes', []);
-  const mkey = (r) => r.u + ':' + r.k + ':' + r.i;
-  function addMistake(r) {
-    if (!mistakes.some((m) => mkey(m) === mkey(r))) {
-      mistakes.push(r);
-      Store.set('mistakes', mistakes);
-    }
+  let mistakes = Review.normalize(Store.get('mistakes', []), todayKey());
+  Store.set('mistakes', mistakes);
+  const mkey = Review.key;
+  const activeMistakes = () => mistakes.filter((r) => r.stage < 3);
+  function trackMistake(item, result, event) {
+    if (!item.ref) return;
+    mistakes = Review.record(mistakes, item.ref, { ...result, mode: item.t }, todayKey(), event);
+    Store.set('mistakes', mistakes);
   }
-  function removeMistake(r) {
-    const n = mistakes.length;
-    mistakes = mistakes.filter((m) => mkey(m) !== mkey(r));
-    if (n !== mistakes.length) Store.set('mistakes', mistakes);
+  function undoMistake(item, event) {
+    if (!item.ref) return;
+    mistakes = Review.undo(mistakes, item.ref, event);
+    Store.set('mistakes', mistakes);
+  }
+  function reinforcement(item) {
+    const r = item.ref && mistakes.find((r) => mkey(r) === mkey(item.ref));
+    if (!r) return '';
+    return `<p class="reinforcement">${r.stage === 3 ? 'Закреплено · три проверки с интервалами.' : `Закрепление ${r.stage} / 3 · следующее повторение ${dateLabel(r.due)}.`}${r.lastReviewDay !== todayKey() && r.due > todayKey() ? ' Ранняя практика не ускоряет интервал.' : ''}</p>`;
   }
 
   function toast(msg) {
@@ -409,10 +418,10 @@
         const ok = valid(opts[i]);
         btns.forEach((b, k) => {
           b.disabled = true;
-          if (valid(opts[k])) b.classList.add('right');
+          if (!g.exam && valid(opts[k])) b.classList.add('right');
         });
-        if (!ok) btns[i].classList.add('wrong');
-        $('.gap', area).textContent = showOpt(g.correct);
+        if (!g.exam && !ok) btns[i].classList.add('wrong');
+        if (!g.exam) $('.gap', area).textContent = showOpt(g.correct);
         finish({ ok, correct: hl(g), say: g.full, user: opts[i] });
       };
       btns.forEach((b, i) => (b.onclick = () => choose(i)));
@@ -423,7 +432,7 @@
       area.innerHTML = `<div class="task">${listenMode ? 'Прослушайте и впишите пропущенные слова' : 'Впишите правильную форму'}</div>
         ${listenMode ? audioBtns() : ''}
         <p class="sent" lang="en">${esc(g.before)}<input class="gapin" lang="en" aria-label="Пропущенные слова" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">${!listenMode && g.hint ? `<span class="hint">(${esc(g.hint)})</span>` : ''}${esc(g.after)}</p>
-        ${listenMode ? '' : '<button class="btn link small showopts" type="button">Показать варианты</button><div class="optlist"></div>'}`;
+        ${listenMode || g.exam || g.review ? '' : '<button class="btn link small showopts" type="button">Показать варианты</button><div class="optlist"></div>'}`;
       const inp = $('.gapin', area);
       inp.style.width = Math.max(6, Math.max(...g.answers.map((a) => a.length)) + 3) + 'ch';
       if (listenMode) { wireAudio(area, g.full); speak(g.full); }
@@ -458,7 +467,7 @@
           const v = ta.value;
           if (!v.trim()) { toast('Сначала напишите, что услышали'); return; }
           ta.disabled = true;
-          if (same(v, [g.full])) return finish({ ok: true, correct: esc(g.full) });
+          if (same(v, [g.full])) return finish({ ok: true, correct: esc(g.full), user: v });
           const d = wordDiff(g.full, v);
           finish({ ok: false, score: d.ratio, correct: d.html, user: v, override: true, note: `совпало ${Math.round(d.ratio * 100)}% слов` });
         },
@@ -705,7 +714,8 @@
       const it = items[pos];
       if (r.score == null) r.score = r.ok ? 1 : 0;
       r.item = it; res[pos] = r;
-      if (it.ref) (r.ok ? removeMistake : addMistake)(it.ref);
+      r.reviewEvent = sessionId + ':' + pos;
+      trackMistake(it, r, r.reviewEvent);
       persistAnswer(r); drawProgress();
       if (tracked && res.filter(Boolean).length === items.length) commitCompleted();
       const draw = () => {
@@ -715,12 +725,12 @@
           <div class="fb-actions">
             ${r.say ? `<button class="btn small say" type="button">${icon('volume')} Послушать</button>` : ''}
             ${!r.ok && r.override ? '<button class="btn small link ovr" type="button">Мой ответ тоже верный</button>' : ''}
-          </div>${Notes.render(Notes.forResult(it, r))}`;
+          </div>${Notes.render(Notes.forResult(it, r))}${reinforcement(it)}`;
         const s = $('.say', fb); if (s) s.onclick = () => speak(r.say);
         const o = $('.ovr', fb);
         if (o) o.onclick = () => {
           r.ok = true; r.score = 1;
-          if (it.ref) removeMistake(it.ref);
+          undoMistake(it, r.reviewEvent);
           persistAnswer(r);
           if (reward && onDone) onDone(accuracy());
           draw(); updateNav();
@@ -809,7 +819,7 @@
   }
   function clubAwards() {
     const ledger = clubLedger();
-    const awards = [{ id: 'first', en: 'First day', title: 'Первый закрытый день', hint: 'Заверши свой дневной набор.' },
+    const awards = [{ id: 'first', en: 'First day', title: 'Первый закрытый день', hint: 'Заверши упражнения и сдай экзамен.' },
       { id: 'weekend', en: 'Weekend', title: 'Оба повторения', hint: 'Повтори материал в субботу и воскресенье одной недели.' },
       { id: 'week', en: 'Full week', title: 'Полная неделя', hint: 'Закрой пять будней и оба повторения.' }];
     return `<section class="club-awards" aria-label="Печати дневника"><span class="eyebrow">Печати дневника</span><div class="award-list">${awards.map((award) => `<div class="award ${ledger.awards[award.id] ? 'is-earned' : ''}" title="${esc(award.hint)}"><span class="award-seal" aria-hidden="true"><small lang="en">Study Club</small>${icon(ledger.awards[award.id] ? 'check' : 'book')}<em lang="en">${award.en}</em></span><b>${award.title}</b><span>${ledger.awards[award.id] ? 'Получено' : award.hint}</span></div>`).join('')}</div>
@@ -819,17 +829,18 @@
     return `<ol class="goal-list" aria-label="Занятия на сегодня">${goal.required.map((t) => {
       const s = modeStatus(D.units[goal.unit], t);
       return `<li><a class="${s.complete ? 'is-complete' : ''}" href="#/u/${goal.unit}/${t}"><span class="goal-check" aria-hidden="true">${s.complete ? icon('check') : ''}</span><span>${TYPES[t].name}</span><small>${s.complete ? 'готово' : s.done ? s.pct + '%' : s.done + '/' + s.total}</small></a></li>`;
-    }).join('')}</ol>`;
+    }).join('')}<li><a class="${Exam.status(exams, goal.unit).passed ? 'is-complete' : ''}" href="#/u/${goal.unit}/exam"><span class="goal-check" aria-hidden="true">${Exam.status(exams, goal.unit).passed ? icon('check') : ''}</span><span>Итоговый экзамен</span><small>${Exam.status(exams, goal.unit).passed ? 'сдан' : unitCompletion(D.units[goal.unit]).complete ? 'открыт' : 'после упражнений'}</small></a></li></ol>`;
   }
   function rewardPanel(reward) {
     const day = todayKey(), state = dayState(day), goal = club.goals[day];
     const next = goal && !Study.isWeekend(day) ? goal.required.find((t) => !state.completed.includes(t)) : null;
+    const nextExam = goal && !next && !Study.isWeekend(day) && !state.done && !Exam.status(exams, goal.unit).passed;
     return `<div class="reward-panel${reward.closed ? ' just-closed' : ''}" role="status">
       ${reward.closed ? `<span class="day-stamp" lang="en">Day<br>complete</span>` : icon('check')}
       <div><b>${reward.week ? 'Полная неделя — печать твоя!' : reward.closed ? Study.isWeekend(day) ? 'Повторение закрыто. Хорошая работа.' : `Юнит ${course.closed[day] || (goal && goal.unit)} закрыт. Хорошая работа.` : 'Подход сохранён.'}</b>
         <p>${reward.xp ? `+${reward.xp} XP · ` : ''}${next ? `${state.completed.filter((t) => goal.required.includes(t)).length} из ${goal.required.length} занятий. Следующее — «${TYPES[next].name}».` : 'Результат записан в дневник.'}</p>
         ${reward.rank ? `<p class="rank-promoted">Новый ранг: <b lang="en">${reward.rank.en}</b> · ${reward.rank.ru}</p>` : ''}
-        ${next ? `<a class="btn small primary" href="#/u/${goal.unit}/${next}">Следующее занятие ${icon('arrow')}</a>` : '<a href="#/calendar">Посмотреть неделю →</a>'}</div></div>`;
+        ${next ? `<a class="btn small primary" href="#/u/${goal.unit}/${next}">Следующее занятие ${icon('arrow')}</a>` : nextExam ? `<a class="btn small primary" href="#/u/${goal.unit}/exam">Перейти к экзамену ${icon('arrow')}</a>` : '<a href="#/calendar">Посмотреть неделю →</a>'}</div></div>`;
   }
   function todayPlan() {
     const day = todayKey();
@@ -838,7 +849,8 @@
     const weekend = Study.isWeekend(day);
     const u = plannedUnit(day);
     const allComplete = goal && unitCompletion(u).complete;
-    const canClaim = allComplete && !state.done && !Course.closedUnits(course, day).has(u.n) && day >= course.since;
+    const exam = Exam.status(exams, u.n);
+    const canClaim = allComplete && exam.passed && !state.done && !Course.closedUnits(course, day).has(u.n) && day >= course.since;
     const next = goal && goal.required.find((t) => !modeStatus(u, t).complete);
     if (Course.rank(course, day).done === 145) return `<div class="today-plan"><span class="eyebrow" lang="en">The Study Club / King</span><h3>Курс закрыт</h3><p>Все 145 юнитов пройдены. Возвращайся к темам, которые хочется закрепить.</p><a class="btn" href="#/">Выбрать тему ${icon('arrow')}</a></div>`;
     return `<div class="today-plan">
@@ -849,10 +861,10 @@
         ${state.units.length && !state.done ? '<p class="plan-help">+25 XP за полное повторение сегодня.</p>' : ''}
         ${state.units.length ? `<a class="btn primary" href="#/review/${day}">${state.done ? 'Повторить ещё раз' : 'Начать повторение'} ${icon('arrow')}</a>` : '<a class="btn" href="#/">Выбрать юнит</a>'}`
         : `<label class="plan-label" for="today-unit">Один юнит после книги</label><select id="today-unit"${state.done ? ' disabled' : ''}>${D.list.map((item) => `<option value="${item.n}"${item.n === u.n ? ' selected' : ''}${Course.closedUnits(course, day).has(item.n) && item.n !== u.n ? ' disabled' : ''}>${String(item.n).padStart(2, '0')} · ${esc(item.title)}</option>`).join('')}</select>
-        <div class="goal-heading"><b>${state.completed.filter((t) => goal.required.includes(t)).length} / ${goal.required.length} завершено</b><span>+20 XP за день</span></div>
+        <div class="goal-heading"><b>${state.completed.filter((t) => goal.required.includes(t)).length} / ${goal.required.length} упражнений</b><span>+20 XP за день</span></div>
         ${goalList(goal, state)}
-        <p class="plan-help">Все упражнения юнита, по частям. Один закрытый юнит в день; другая практика сохраняется отдельно.</p>
-        ${canClaim ? '<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>' : `<a class="btn primary today-start" href="#/u/${u.n}${next && !state.done ? '/' + next : ''}">${state.done ? 'Продолжить практику' : next ? 'Следующее занятие' : 'Открыть юнит'} ${icon('arrow')}</a>`}`}
+        <p class="plan-help">Все упражнения → экзамен от 80% → закрытый день. Один юнит в будний день.</p>
+        ${allComplete && !exam.passed && !state.done ? `<a class="btn primary" href="#/u/${u.n}/exam">${exam.draft ? 'Продолжить экзамен' : 'Сдать экзамен'} ${icon('arrow')}</a>` : canClaim ? '<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>' : `<a class="btn primary today-start" href="#/u/${u.n}${next && !state.done ? '/' + next : ''}">${state.done ? 'Продолжить практику' : next ? 'Следующее занятие' : 'Открыть юнит'} ${icon('arrow')}</a>`}`}
     </div>`;
   }
   function wireTodayPlan() {
@@ -917,7 +929,8 @@
       const u = D.units[n];
       return ['mc', 'fill', 'err', 'tr'].flatMap((t) => available(u, t) ? unitItems(u, t) : []);
     }));
-    const items = Study.reviewSelection(pool);
+    const priority = Review.due(mistakes, todayKey()).filter((r) => units.includes(r.u)).map(reviewItem).filter(Boolean);
+    const items = Study.reviewSelection(priority.concat(pool));
     session({ title: `Повторение недели · ${weekLabel(day)}`, back: '#/calendar/' + day,
       items: shuffle(items), context: { kind: 'review', week } });
   }
@@ -946,7 +959,7 @@
         <div class="stats" aria-label="Твой прогресс">
           <div><b>${inBook}<span class="sr-only"> из ${D.list.length}</span></b><span>пройдено в книге</span></div>
           <div><b>${started}</b><span>${plural(started, 'юнит', 'юнита', 'юнитов')} в практике</span></div>
-          <div><b>${mistakes.length}</b><span>${plural(mistakes.length, 'ошибка', 'ошибки', 'ошибок')} на повтор</span></div>
+          <div><b>${activeMistakes().length}</b><span>${plural(activeMistakes().length, 'ошибка', 'ошибки', 'ошибок')} на повтор</span></div>
         </div>
       </section>
       ${clubBoard()}
@@ -969,7 +982,7 @@
           ${last ? `<a class="aside-link" href="#/u/${current.n}">${icon('book')}<span>Вернуться к Unit ${current.n}</span>${icon('arrow')}</a>` : ''}
           <p class="aside-note">Отмечай пройденные юниты на их страницах — так их будет проще повторять в миксе.</p>
           <a class="aside-link" href="#/mix">${icon('mix')}<span>Повторить пройденное</span>${icon('arrow')}</a>
-          <a class="aside-link" href="#/mistakes">${icon('tr')}<span>Разобрать ошибки</span><small>${mistakes.length}</small></a>
+          <a class="aside-link" href="#/mistakes">${icon('tr')}<span>Разобрать ошибки</span><small>${activeMistakes().length}</small></a>
         </aside>
       </div>`;
     const box = $('.sections'), search = $('.search'), note = $('.results-note');
@@ -1024,7 +1037,7 @@
         <section class="unit-practice" aria-labelledby="practice-title">
           <div class="practice-head"><h2 id="practice-title">Закрепить тему</h2><span class="unit-completion">${completion.pct}% выполнено <small>${completion.done} / ${completion.total} заданий</small></span></div>
           <p class="completion-help">Выполнение сохраняется после каждого ответа. Правильность показывается отдельно.</p>
-          ${goal && goal.unit === u.n ? `<section class="unit-goal" aria-label="Дневной набор"><div class="goal-heading"><b>${state.done ? 'День закрыт' : `Все режимы · ${state.completed.length} / ${goal.required.length}`}</b><a href="#/calendar">Дневник →</a></div>${goalList(goal, state)}${completion.complete && !state.done && !claimed ? '<button class="btn primary small claim-unit" type="button">Закрыть юнит сегодня</button>' : ''}</section>` : `<div class="unit-goal-note"><span>${claimed ? 'Юнит уже закрыт. Можно повторять.' : course.closed[todayKey()] ? `Сегодня закрыт Unit ${course.closed[todayKey()]}. Здесь — свободная практика.` : goal ? `Свободная практика. Цель на сегодня — Unit ${goal.unit}.` : 'Свободная практика выходного. Все ответы сохраняются.'}</span>${goal && !state.done && !claimed ? '<button class="btn small make-today-unit" type="button">Выбрать на сегодня</button>' : ''}</div>`}
+          ${goal && goal.unit === u.n ? `<section class="unit-goal" aria-label="Дневной набор"><div class="goal-heading"><b>${state.done ? 'День закрыт' : `Упражнения · ${state.completed.length} / ${goal.required.length}`}</b><a href="#/calendar">Дневник →</a></div>${goalList(goal, state)}${completion.complete && Exam.status(exams, u.n).passed && !state.done && !claimed ? '<button class="btn primary small claim-unit" type="button">Закрыть юнит сегодня</button>' : ''}</section>` : `<div class="unit-goal-note"><span>${claimed ? 'Юнит уже закрыт. Можно повторять.' : course.closed[todayKey()] ? `Сегодня закрыт Unit ${course.closed[todayKey()]}. Здесь — свободная практика.` : goal ? `Свободная практика. Цель на сегодня — Unit ${goal.unit}.` : 'Свободная практика выходного. Все ответы сохраняются.'}</span>${goal && !state.done && !claimed ? '<button class="btn small make-today-unit" type="button">Выбрать на сегодня</button>' : ''}</div>`}
           ${Object.keys(GROUPS).filter((g) => groups[g]).map((g) => `
             <h3 class="grp">${GROUPS[g]}</h3>
             <div class="grid">${groups[g].map((t) => {
@@ -1039,6 +1052,7 @@
                 ${icon('arrow').replace('class="icon"', 'class="icon ex-arrow"')}
               </a>`;
             }).join('')}</div>`).join('')}
+          ${examCard(u)}
         </section>
       </div>
       <div class="unav">
@@ -1056,6 +1070,104 @@
       dailyPlan[todayKey()] = u.n;
       Store.set('dailyPlan', dailyPlan); saveClub(); route();
     };
+  }
+
+  // ---------- итоговая проверка ----------
+  function examItems(u) {
+    const pool = ['mc','fill','order','lgap','dict','err','tr'].flatMap(t => available(u,t) ? unitItems(u,t,false) : []);
+    return shuffle(Exam.select(pool));
+  }
+  function restoreExamItem(it) { return makeItem(it.t, D.units[it.ref.u], it.ref.k, it.ref.i); }
+  function correctText(it) { return it.ref.k === 'gap' ? it.data.full : it.data.a[0]; }
+  function examCard(u) {
+    const ready = unitCompletion(u).complete, status = Exam.status(exams,u.n);
+    return `<section class="exam-card ${ready ? 'is-ready' : ''}" aria-label="Итоговый экзамен">
+      <div class="exam-seal" aria-hidden="true" lang="en">Study<br>Club<span>${status.passed ? '✓' : 'E'}</span></div>
+      <div><span class="eyebrow" lang="en">Unit ${u.n} / Final examination</span><h3>${status.passed ? 'Экзамен сдан' : 'Итоговый экзамен'}</h3>
+        <p>${ready ? '13 разных примеров · смешанные форматы · от 80% для сдачи. Разбор после последнего ответа.' : 'Откроется после всех упражнений юнита. Сдача экзамена закрывает выбранный юнит и будний день.'}</p>
+        ${status.best !== null ? `<p class="exam-best">Лучший результат: ${status.best}% · попыток ${status.attempts}</p>` : ''}
+        ${ready ? `<a class="btn primary small" href="#/u/${u.n}/exam">${status.draft ? `Продолжить · ${status.answered}/13` : status.last ? 'Результат и пересдача' : 'Открыть экзамен'} ${icon('arrow')}</a>` : `<span class="muted small">Упражнения: ${unitCompletion(u).done} / ${unitCompletion(u).total}</span>`}
+      </div></section>`;
+  }
+  function finalizeExam(u) {
+    const draft = Exam.status(exams,u.n).draft;
+    if (draft && Object.keys(draft.answers).length === 13) {
+      exams = Exam.finish(exams,u.n,todayKey()); saveExams();
+    }
+    const attempt = Exam.status(exams,u.n).last;
+    if (!attempt || attempt.day !== todayKey()) return;
+    if (activity.some(e => e.session === attempt.id && e.kind === 'exam')) {
+      if (Object.values(attempt.answers).filter(r => r.ok).length / 13 >= 0.8) closeGoal(u.n);
+      return;
+    }
+    const results = attempt.items.map(d => ({...attempt.answers[Exam.key(d)],item:restoreExamItem(d)}));
+    // Recover an interrupted final save, using stable IDs for the attempt and errors.
+    results.forEach(r => trackMistake(r.item,r,attempt.id + ':' + Exam.key(r.item)));
+    recordActivity({kind:'exam',unit:u.n,passed:results.filter(r=>r.ok).length/13>=0.8,session:attempt.id,title:`Unit ${u.n} · Экзамен`},results);
+    updateNav();
+  }
+  function examPage(u) {
+    prep(u);
+    if (!unitCompletion(u).complete) {
+      app.innerHTML = `<div class="page-narrow"><div class="crumbs"><a href="#/u/${u.n}">Unit ${u.n}</a> / Экзамен</div><h1>Сначала — упражнения</h1>${examCard(u)}<a class="btn" href="#/u/${u.n}">Продолжить юнит →</a></div>`;
+      return;
+    }
+    finalizeExam(u);
+    const status = Exam.status(exams,u.n);
+    app.innerHTML = `<div class="page-narrow exam-page"><div class="crumbs"><a href="#/u/${u.n}">Unit ${u.n}</a> / Экзамен</div>
+      <span class="eyebrow" lang="en">The Study Club / Examination room</span><h1>Экзамен по Unit ${u.n}</h1><p class="page-intro" lang="en">${esc(u.title)}</p>
+      ${status.draft ? `<div class="card exam-intro"><h2>Продолжим с оставшегося</h2><p>Сохранено ${status.answered} из 13 ответов. Порядок и ответы этой попытки сохранятся.</p><button class="btn primary start-exam" type="button">Продолжить экзамен</button></div>` : status.last ? examResult(u,status.last) : `<div class="card exam-intro"><h2>Проверить себя без подсказок</h2><p>13 разных примеров: выбор, форма, порядок слов, исправление, перефразирование и аудирование. Для сдачи нужно не меньше 11 верных ответов.</p><p>Ответы сохраняются по одному. Перевод, правило и оценка появятся в конце; исправить ответ в этой попытке нельзя. В аудировании можно слушать повторно.</p><button class="btn primary start-exam" type="button">Начать экзамен</button></div>`}
+    </div>`;
+    const start = $('.start-exam');
+    if(start)start.onclick=()=>{if(!Exam.status(exams,u.n).draft){exams=Exam.start(exams,u.n,examItems(u),'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2),todayKey());saveExams();}examRun(u);};
+  }
+  function examResult(u,attempt) {
+    const results=attempt.items.map(d=>({...attempt.answers[Exam.key(d)],item:restoreExamItem(d)}));
+    const correct=results.filter(r=>r.ok).length, passed=correct/13>=0.8;
+    const breakdown={};results.forEach(r=>{const b=breakdown[r.item.t]||(breakdown[r.item.t]={correct:0,total:0});b.total++;if(r.ok)b.correct++;});
+    const goal=ensureGoal(), claimed=Course.closedUnits(course,todayKey()).has(u.n);
+    const claimable=goal&&goal.unit===u.n&&!dayState(todayKey()).done&&!claimed&&Exam.canClose(exams,u.n,true);
+    return `<section class="card exam-result"><span class="eyebrow" lang="en">${passed?'Pass':'Try again'}</span><div class="exam-score"><b>${Math.round(correct/13*100)}%</b><span>${correct} / 13 верно</span></div>
+      <h2>${passed?'Экзамен сдан':'Пока не сдан'}</h2><p>${passed ? claimed ? 'Юнит закрыт. Можно продолжать закрепление и возвращаться к сложным местам.' : 'Проверка пройдена. Закрыть этот юнит можно, выбрав его целью свободного буднего дня.' : 'Нужно минимум 11 верных ответов. Разбери сложные места, потренируйся и попробуй ещё раз.'}</p>
+      <div class="exam-breakdown">${Object.entries(breakdown).map(([t,b])=>`<div><span>${TYPES[t].name}</span><b>${b.correct}/${b.total}</b></div>`).join('')}</div>
+      <div class="actions">${claimable?'<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>':''}<button class="btn ${passed?'':'primary'} start-exam" type="button">${passed?'Пересдать для себя':'Новая попытка'}</button><a class="btn ghost" href="#/mistakes">Закрепить ошибки</a></div>
+      ${course.closed[todayKey()]===u.n?`<p class="exam-day-complete">${icon('check')} День закрыт · ранг <span lang="en">${Course.rank(course,todayKey()).current.en}</span><a href="#/calendar">Дневник →</a></p>`:''}
+    </section><h2>Разбор всех ответов</h2><p class="muted small">Ошибки сохранены в журнале. Первое повторение — через день, затем через 3 и 7 дней.</p>
+      <div class="exam-analysis">${results.map((r,i)=>`<details class="exam-answer ${r.ok?'is-correct':'is-wrong'}"${!r.ok?' open':''}><summary><span>${i+1}. ${TYPES[r.item.t].name}</span><b>${r.ok?'Верно':'Разобрать'}</b></summary><p class="exam-user">Твой ответ: <span lang="en">${esc(r.user || '∅')}</span></p><p class="answer" lang="en">${esc(correctText(r.item))}</p>${Notes.render(Notes.forResult(r.item,r))}</details>`).join('')}</div>`;
+  }
+  function examRun(u) {
+    const draft=Exam.status(exams,u.n).draft;
+    if(!draft)return examPage(u);
+    const pending=draft.items.filter(it=>!draft.answers[Exam.key(it)]);
+    let pos=0,answered=false,ctl={};
+    app.innerHTML=`<div class="session exam-session"><div class="sess-top"><button class="btn ghost quit" aria-label="Выйти из экзамена" type="button">${icon('close')}</button><div class="bar" role="progressbar" aria-label="Выполнение экзамена" aria-valuemin="0" aria-valuemax="13"><i></i></div><span class="count" aria-live="polite"></span></div>
+      <h1 class="sess-title">Unit ${u.n} · Экзамен</h1><p class="session-note">Ответы сохраняются. Оценка и разбор — в конце.</p><div class="card ex"><div class="area"></div><div class="fb" role="status" aria-live="polite"></div><div class="actions"><button class="btn primary main" type="button"></button></div></div></div>`;
+    const area=$('.area'),fb=$('.fb'),btn=$('.main');
+    $('.quit').onclick=()=>go('#/u/'+u.n+'/exam');
+    const initial=Object.keys(draft.answers).length;
+    function draw(done){$('.count').textContent=`${done} / 13 · ${Math.round(done/13*100)}%` ;$('.bar i').style.width=done/13*100+'%';$('.bar').setAttribute('aria-valuenow',done);}
+    function show(){
+      if(!pending[pos])return examPage(u);
+      answered=false;fb.innerHTML='';fb.className='fb';draw(initial+pos);
+      const item=restoreExamItem(pending[pos]);ctl=R[item.t](area,{...item.data,exam:true},finish)||{};
+      btn.style.display=ctl.check?'':'none';btn.textContent='Сохранить ответ';btn.onclick=()=>ctl.check&&ctl.check();
+      const input=$('input,textarea',area);if(input&&!matchMedia('(pointer: coarse)').matches)input.focus();
+    }
+    function finish(result){
+      if(answered)return;answered=true;
+      exams=Exam.answer(exams,u.n,Exam.key(pending[pos]),result);saveExams();draw(initial+pos+1);
+      if(pos+1===pending.length)finalizeExam(u);
+      fb.className='fb exam-saved';fb.innerHTML='<p>Ответ сохранён. Проверим в конце экзамена.</p>';
+      btn.style.display='';btn.textContent=pos+1<pending.length?'Далее →':'Результат экзамена';btn.onclick=()=>{pos++;if(pos<pending.length)show();else{keyHandler=null;examPage(u);wireClaim();}};btn.focus();
+    }
+    keyHandler=e=>{const tag=e.target.tagName;if(e.key==='Enter'&&!e.shiftKey&&tag!=='BUTTON'&&tag!=='A'&&btn.style.display!=='none'){e.preventDefault();btn.click();}else if(!answered&&ctl.keys&&/^[1-9]$/.test(e.key)&&tag!=='INPUT'&&tag!=='TEXTAREA')ctl.keys(+e.key);};
+    show();
+  }
+  function wireClaim() {
+    const claim=$('.claim-unit');
+    if(claim)claim.onclick=()=>{const goal=ensureGoal();if(!goal || !Exam.canClose(exams,goal.unit,unitCompletion(D.units[goal.unit]).complete))return;
+      const reward=recordActivity({kind:'claim',unit:goal.unit,title:`Unit ${goal.unit} · Закрытие юнита`});
+      toast(reward.rank?`Юнит закрыт · новый ранг ${reward.rank.en}`:`Юнит закрыт · +${reward.xp} XP`);route();};
   }
 
   function startUnit(u, t) {
@@ -1156,37 +1268,44 @@
     };
   }
 
-  function mistakeItems() {
-    return mistakes.map((r) => {
-      const u = D.units[r.u];
-      if (!u) return null;
-      const it = makeItem(r.k === 'gap' ? 'fill' : r.k, u, r.k, r.i);
-      return it.data ? it : null;
-    }).filter(Boolean);
+  function reviewItem(r) {
+    const u = D.units[r.u];
+    if (!u) return null;
+    prep(u);
+    const modes = ['fill', 'order', 'dict'];
+    let t = r.k === 'gap' ? modes[r.stage % modes.length] : r.k;
+    if (t === 'order' && !u.orderIdx.includes(r.i)) t = 'fill';
+    const it = makeItem(t, u, r.k, r.i);
+    if (it.data) it.data = { ...it.data, review: true };
+    return it.data ? it : null;
   }
-
   function mistakesPage() {
-    const items = mistakeItems();
-    const byUnit = {};
-    mistakes.forEach((r) => (byUnit[r.u] = (byUnit[r.u] || 0) + 1));
-    app.innerHTML = `<div class="page-narrow">
-      <span class="eyebrow">Повторение / сложные места</span><h1>Работа над ошибками</h1>
-      <div class="card">
-        ${items.length ? `<p>Заданий на повторение: <b>${items.length}</b>. Задание исчезает из списка, когда вы ответите на него правильно.</p>
-          <div class="chips">${Object.keys(byUnit).sort((a, b) => a - b).map((n) => `<a class="chip" href="#/u/${n}">Unit ${n} · ${byUnit[n]}</a>`).join('')}</div>
-          <div class="actions"><button class="btn primary start" type="button">Повторить (до 20)</button>
-          <button class="btn ghost clear" type="button">Очистить список</button></div>`
-        : `<div class="empty"><h2>Пока без ошибок</h2><p>Здесь появятся задания, которые стоит повторить. После правильного ответа они уйдут из списка.</p><a class="btn" href="#/">Выбрать юнит ${icon('arrow')}</a></div>`}
-      </div></div>`;
-    if (!items.length) return;
-    $('.start').onclick = () => session({ title: 'Работа над ошибками', back: '#/mistakes', items: shuffle(items).slice(0, 20) });
-    $('.clear').onclick = () => {
-      if (!confirm('Очистить список ошибок?')) return;
-      mistakes = [];
-      Store.set('mistakes', mistakes);
-      mistakesPage();
-      updateNav();
-    };
+    const stats = Review.summary(mistakes, todayKey());
+    const due = Review.due(mistakes, todayKey());
+    const active = activeMistakes().sort((a,b) => a.due.localeCompare(b.due) || b.lapses - a.lapses);
+    const rows = (list) => list.map((r) => {
+      const item = reviewItem(r), note = item && Notes.forResult(item, { ok: false });
+      const full = item && (item.data.full || item.data.q);
+      return `<article class="error-entry"><div class="error-entry-top"><a href="#/u/${r.u}">Unit ${r.u} · ${esc(D.units[r.u].title)}</a><span>${r.stage === 3 ? 'Закреплено' : r.due <= todayKey() ? 'Пора повторить' : dateLabel(r.due)}</span></div>
+        <p lang="en">${esc(full || '')}</p>${r.lastAnswer ? `<p class="muted small">Последняя ошибка: <span lang="en">${esc(r.lastAnswer)}</span> · ${esc(TYPES[r.lastMode] ? TYPES[r.lastMode].name : 'практика')}</p>` : ''}
+        <div class="error-entry-bottom"><span>Закрепление ${r.stage} / 3</span><span>Ошибок: ${r.lapses}</span></div>
+        ${note ? `<details class="error-rule"><summary>Вспомнить перевод и правило</summary>${Notes.render(note)}</details>` : ''}</article>`;
+    }).join('');
+    app.innerHTML = `<div class="page-narrow review-page">
+      <span class="eyebrow" lang="en">The Study Club / Revision desk</span><h1>Работа над ошибками</h1>
+      <p class="page-intro">Вернуться к правилу, вспомнить без подсказки, проверить через время.</p>
+      <div class="review-stats"><div><b>${stats.due}</b><span>на сегодня</span></div><div><b>${stats.active}</b><span>закрепляем</span></div><div><b>${stats.mastered}</b><span>закреплено</span></div></div>
+      <div class="card review-plan"><h2>${stats.due ? 'Пора вспомнить' : stats.active ? 'Повторения запланированы' : stats.mastered ? 'Сложные места закреплены' : 'Пока без ошибок'}</h2>
+        <p>После ошибки — проверка через день, затем через 3 и 7 дней. Три верных ответа с интервалами закрепляют пример. Новая ошибка возвращает его в начало.</p>
+        ${due.length ? `<button class="btn primary start-due" type="button">Повторить на сегодня · ${Math.min(20,due.length)}</button>` : active.length ? `<p class="muted">Ближайшее повторение — ${dateLabel(active[0].due)}. Можно потренироваться раньше; интервал сохранится.</p>` : '<a class="btn" href="#/">Выбрать юнит →</a>'}
+        ${active.length ? '<button class="btn ghost start-early" type="button">Свободная практика ошибок</button>' : ''}
+      </div>
+      ${active.length ? `<h2>В работе · ${active.length}</h2><div class="error-list">${rows(active)}</div>` : ''}
+      ${stats.mastered ? `<details class="mastered-errors"><summary>Закреплённые примеры · ${stats.mastered}</summary>${rows(mistakes.filter(r=>r.stage===3))}</details>` : ''}
+    </div>`;
+    function run(list) { session({title:'Закрепление ошибок',back:'#/mistakes',items:list.slice(0,20).map(reviewItem).filter(Boolean)}); }
+    const start = $('.start-due'); if(start)start.onclick = () => run(due);
+    const early = $('.start-early'); if(early)early.onclick = () => run(active);
   }
 
   function labPage() {
@@ -1230,7 +1349,7 @@
           <select class="theme"><option value="light">Светлая бумага</option><option value="dark">Тёмная</option><option value="system">Как в системе</option></select></label>
       </div>
       <div class="card form"><h2>Ежедневный план</h2>
-        <p>Все упражнения выбранного юнита, по частям. Не более одного закрытого юнита в будний день; в выходные — повторение недели.</p>
+        <p>Все упражнения выбранного юнита → экзамен от 80% → закрытый день. Не более одного юнита в будний день; в выходные — повторение недели.</p>
         <p class="muted small">Следующий юнит курса: ${Course.next(course, todayKey()) || 'все пройдены'}. Предыдущие темы доступны для свободной практики. Ранг растёт за разные закрытые юниты.</p>
         <p class="muted small">10 XP за новый завершённый режим дня · 20 XP за закрытый будний юнит · 25 XP за повторение выходного · 50 XP за полную неделю.</p>
         <a href="#/ranks">Лестница рангов →</a>
@@ -1298,8 +1417,8 @@
   // ---------- маршрутизация ----------
   function updateNav() {
     const c = $('#mcount');
-    c.textContent = mistakes.length || '';
-    c.hidden = !mistakes.length;
+    c.textContent = activeMistakes().length || '';
+    c.hidden = !activeMistakes().length;
   }
 
   function route() {
@@ -1316,7 +1435,8 @@
     });
     if (p[0] === 'u' && D.units[p[1]]) {
       const u = D.units[p[1]];
-      if (p[2]) startUnit(u, p[2]);
+      if (p[2] === 'exam') examPage(u);
+      else if (p[2]) startUnit(u, p[2]);
       else unitPage(u);
     } else if (p[0] === 'calendar') calendarPage(Study.date(p[1]) ? p[1] : todayKey());
     else if (p[0] === 'review') reviewPage(Study.date(p[1]) ? p[1] : todayKey());
@@ -1326,13 +1446,7 @@
     else if (p[0] === 'ranks') ranksPage();
     else if (p[0] === 'settings') settingsPage();
     else home();
-    const claim = $('.claim-unit');
-    if (claim) claim.onclick = () => {
-      const goal = ensureGoal();
-      const reward = recordActivity({ kind: 'claim', unit: goal.unit, title: `Unit ${goal.unit} · Закрытие юнита` });
-      toast(reward.rank ? `Юнит закрыт · новый ранг ${reward.rank.en}` : `Юнит закрыт · +${reward.xp} XP`);
-      route();
-    };
+    wireClaim();
     updateNav();
     window.scrollTo(0, 0);
   }

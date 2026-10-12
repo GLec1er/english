@@ -88,3 +88,8 @@ test('claiming a previously completed unit is an active day without an extra sco
   const stats=S.summary(loaded,'2026-10-13');assert.equal(stats.days,1);assert.equal(stats.sessions,0);assert.equal(stats.answers,0);
   assert.deepEqual(S.weekUnits(loaded,'2026-10-17'),[36]);
 });
+
+test('completed exams survive reload and contribute scored statistics without claiming a course day',()=>{
+ const rows=S.normalize([{id:'exam-36',day:'2026-10-12',kind:'exam',units:[36],answers:13,correct:11,title:'Unit 36 exam'}]);
+ assert.equal(rows.length,1);assert.equal(S.summary(rows,'2026-10-12').answers,13);assert.equal(S.dayStatus(rows,'2026-10-12').done,false);assert.deepEqual(S.weekUnits(rows,'2026-10-17'),[36]);
+});
