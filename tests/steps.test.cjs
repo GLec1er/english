@@ -35,3 +35,9 @@ check('unknown imported questions, invalid scores and foreign units do not count
   assert.equal(S.status(loaded['36:fill'],keys,false).done,1);
   assert.equal(loaded['146:fill'],undefined);
 });
+check('a journal appeal corrects only the matching saved rejection event and keeps completion count',()=>{
+ const entry=S.record(null,'gap:0',{ok:false,score:0,user:'could',reviewEvent:'session:0',eventId:'activity'},123);
+ const loaded=S.normalize(JSON.parse(JSON.stringify({'36:fill':entry})))['36:fill'];
+ const accepted=S.accept(loaded,'gap:0','session:0','could');assert.equal(accepted.answers['gap:0'].ok,true);assert.equal(accepted.answers['gap:0'].eventId,'activity');assert.equal(accepted.answers['gap:0'].ts,123);assert.equal(S.status(accepted,keys,false).done,1);
+ assert.deepEqual(S.accept(loaded,'gap:0','older:0','could'),loaded);assert.deepEqual(S.accept(loaded,'gap:0','session:0','would'),loaded);
+});

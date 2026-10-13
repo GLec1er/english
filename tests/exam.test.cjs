@@ -47,3 +47,12 @@ test('transfer form identity survives paused exam export and cannot collide with
  const a=bank().map(it=>({...it,ref:{...it.ref,b:'transfer',v:'A'}}));let s=E.start({},36,a,'transfer','2026-10-13');s=E.answer(s,36,E.key(a[0]),{ok:true,user:'new'});
  s=E.normalize(JSON.parse(JSON.stringify(s)));assert.equal(E.status(s,36).draft.items[0].ref.b,'transfer');assert.equal(E.status(s,36).draft.items[0].ref.v,'A');assert.notEqual(E.key(a[0]),E.key(bank()[0]));assert.notEqual(E.key(a[0]),E.key({...a[0],ref:{...a[0].ref,v:'B'}}));
 });
+test('an explicit appeal can correct a submitted answer once without another attempt',()=>{
+ const s=E.finish(answered(10),36),key=E.key(bank()[10]);
+ const accepted=E.accept(s,36,'a',key,'answer');assert.equal(E.status(accepted,36).passed,true);assert.equal(E.status(accepted,36).attempts,1);
+ assert.equal(E.status(s,36).passed,false);assert.equal(E.status(accepted,36).last.answers[key].accepted,true);
+ assert.equal(E.status(E.normalize(JSON.parse(JSON.stringify(accepted))),36).last.answers[key].accepted,true);
+ assert.deepEqual(E.accept(accepted,36,'a',key,'answer'),accepted);
+ assert.deepEqual(E.accept(s,36,'a',key,'another answer'),s);assert.deepEqual(E.accept(s,36,'other',key,'answer'),s);
+ assert.deepEqual(E.accept(answered(10),36,'a',key,'answer'),answered(10));
+});

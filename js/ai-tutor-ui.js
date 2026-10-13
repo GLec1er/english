@@ -28,6 +28,25 @@
     finally{button.disabled=false;}
    };
   }
-  return {settings,attach,forget:keyVault.forget};
+  function attachDispute({container,exercise,text,onAccept}){
+   const D=h.Disputes;
+   container.insertAdjacentHTML('beforeend','<div class="optional-tutor dispute-tutor"><div class="actions"><button class="btn small dispute-check" type="button">Проверить с ИИ · платно</button><a class="small" href="#/settings">Настройки и лимит</a></div><p class="muted small">ИИ сравнит задание, твой ответ и ответ тренажёра. Разбор сохраняется; зачесть ответ можно отдельной кнопкой.</p><div class="dispute-output" aria-live="polite"></div></div>');
+   const box=$('.dispute-tutor',container),output=$('.dispute-output',box),button=$('.dispute-check',box);
+   function show(r){
+    if(!output.isConnected)return;
+    const v=r.review,labels={acceptable:'Твой ответ допустим',incorrect:'Ответ нужно исправить',uncertain:'Не хватает контекста'};
+    output.innerHTML=`<div class="ai-adjudication" data-verdict="${v.verdict}"><h3>${labels[v.verdict]}</h3><p class="muted small">${esc(A.models[r.model].name)} · ${r.day} · ${money(r.cost)} по сохранённому тарифу · сохранённый разбор</p><p>${esc(v.explanation)}</p>${v.translation?`<p><b>Перевод:</b> ${esc(v.translation)}</p>`:''}${v.suggestedAnswer?`<p><b>Вариант ответа:</b> <span lang="en">${esc(v.suggestedAnswer)}</span></p>`:''}<p class="muted small">Сверь объяснение с правилом. Оценка изменится только после твоего подтверждения.</p>${v.verdict==='acceptable'&&onAccept?'<button class="btn small primary accept-dispute" type="button">Зачесть мой ответ</button>':''}</div>`;
+    const accept=$('.accept-dispute',output);if(accept)accept.onclick=()=>{if(!accept.isConnected)return;accept.disabled=true;if(onAccept()===false){accept.disabled=false;output.insertAdjacentHTML('beforeend','<p>Этот ответ уже изменился. Открой актуальный разбор.</p>');}};
+   }
+   const old=D.cached(h.getDisputes(),exercise,text,getOptions().model);if(old)show(old);
+   button.onclick=async()=>{
+    const options=getOptions(),previous=D.cached(h.getDisputes(),exercise,text,options.model);if(previous){show(previous);return;}
+    let price;try{price=A.estimate(A.payload({...options,type:'dispute',exercise,text}));}catch(e){output.textContent=e.message;return;}
+    if(!keyVault.get()){output.textContent='Добавь API-ключ в настройках. Ручная проверка остаётся доступной.';return;}
+    button.disabled=true;output.textContent=`Выполняется проверка. Верхняя оценка по сохранённому тарифу: ${money(price)}.`;
+    try{const result=await client.check({...options,type:'dispute',exercise,text,key:keyVault.get()});const saved={...result,exercise};h.setDisputes(D.remember(h.getDisputes(),saved));show(saved);}catch(e){if(output.isConnected)output.textContent=e.message;}finally{button.disabled=false;}
+   };
+  }
+  return {settings,attach,attachDispute,forget:keyVault.forget};
  };
 })(window);
