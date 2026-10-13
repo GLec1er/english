@@ -4,7 +4,7 @@
 
   const D = window.EGIU;
   const Notes = window.EGIUNotes;
-  const Exam = window.EGIUExam, Review = window.EGIUReview;
+  const Exam = window.EGIUExam, Review = window.EGIUReview, Learning = window.EGIULearning;
   const app = document.getElementById('app');
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -105,6 +105,9 @@
   }
   const saveCourse = () => Store.set('course', course);
   saveCourse();
+  let learning = Learning.seedTopics(Learning.normalize(Store.get('learning', {}), todayKey()), course.closed, todayKey());
+  const saveLearning = () => Store.set('learning', learning);
+  saveLearning();
   const Club = window.EGIUClub;
   const club = Club.normalize(Store.get('club', null), todayKey());
   if (!storedCourse && todayKey() >= course.since && !Study.isWeekend(todayKey())) delete club.goals[todayKey()];
@@ -133,6 +136,7 @@
     if (!goal) return;
     course = Course.close(course, todayKey(), unit, Exam.canClose(exams, unit, unitCompletion(D.units[unit]).complete), goal.unit);
     saveCourse();
+    learning = Learning.seedTopics(learning, course.closed, todayKey()); saveLearning();
   }
   function recordActivity(context, results = []) {
     if (context.unit) ensureGoal();
@@ -616,32 +620,20 @@
     },
   };
 
+  const recorderCleanups=[];
+  function releaseRecorders(){recorderCleanups.splice(0).forEach(fn=>fn());}
+  window.addEventListener('beforeunload',releaseRecorders);
   function wireRecorder(btn, out) {
     if (!btn) return;
     if (!navigator.mediaDevices || !window.MediaRecorder) { btn.disabled = true; btn.textContent = 'Запись недоступна'; return; }
-    let rec = null;
-    btn.onclick = async () => {
-      if (rec) { rec.stop(); return; }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const chunks = [];
-        rec = new MediaRecorder(stream);
-        rec.ondataavailable = (e) => chunks.push(e.data);
-        rec.onstop = () => {
-          stream.getTracks().forEach((t) => t.stop());
-          const url = URL.createObjectURL(new Blob(chunks, { type: rec.mimeType }));
-          out.innerHTML = `<audio controls src="${url}"></audio>`;
-          rec = null;
-          btn.textContent = 'Записать ещё раз';
-          btn.classList.remove('on');
-        };
-        rec.start();
-        btn.textContent = 'Стоп';
-        btn.classList.add('on');
-      } catch (e) {
-        toast('Нет доступа к микрофону');
-      }
-    };
+    const controller=window.EGIURecorder.create({
+      getStream:()=>navigator.mediaDevices.getUserMedia({audio:true}),Recorder:window.MediaRecorder,
+      makeBlob:(chunks,mime)=>new Blob(chunks,{type:mime}),makeURL:blob=>URL.createObjectURL(blob),revokeURL:url=>URL.revokeObjectURL(url),
+      onState:state=>{btn.disabled=state==='pending';btn.textContent=state==='recording'?'Стоп':state==='pending'?'Подключаем микрофон…':'Записать себя';btn.classList.toggle('on',state==='recording');},
+      onRecord:({url,mime})=>{out.innerHTML=`<audio controls src="${url}"></audio><a class="small" href="${url}" download="my-english-answer.${mime.includes('mp4')?'m4a':'webm'}">Скачать запись</a>`;},
+      onError:()=>toast('Микрофон недоступен. Можно проговорить ответ без записи и вписать текст.'),
+    });
+    btn.onclick=controller.toggle;recorderCleanups.push(controller.dispose);
   }
 
   // ---------- сессия упражнений ----------
@@ -651,14 +643,16 @@
   function session({ title, back, items, onDone, context = {} }) {
     let pos = 0, ctl = {}, answered = false, ended = false, reward = null;
     const tracked = context.kind === 'unit' && context.unit && context.mode;
-    const sessionId = Date.now() + '-' + Math.random().toString(36).slice(2);
+    const learningDraft = context.learningSession && learning.sessions[context.learningSession];
+    const sessionId = learningDraft ? learningDraft.id : Date.now() + '-' + Math.random().toString(36).slice(2);
     const allItems = items, entryId = context.unit + ':' + context.mode;
-    const saved = tracked ? steps[entryId] : null;
+    const saved = learningDraft || (tracked ? steps[entryId] : null);
+    const savedKey = it => learningDraft ? Learning.key(it.ref) : stepKey(it);
     const alreadyComplete = tracked && modeStatus(D.units[context.unit], context.mode).complete;
-    const baseline = tracked && !alreadyComplete ? allItems.filter((it) => saved && saved.answers[stepKey(it)]).map((it) => ({
-      ...saved.answers[stepKey(it)], item: it, correct: it.ref.k === 'gap' ? hl(it.data) : esc(it.data.a[0]),
+    const baseline = (tracked || learningDraft) && !alreadyComplete ? allItems.filter((it) => saved && saved.answers[savedKey(it)]).map((it) => ({
+      ...saved.answers[savedKey(it)], item: it, correct: it.ref.k === 'gap' ? hl(it.data) : esc(it.data.a[0]),
     })) : [];
-    if (baseline.length) items = allItems.filter((it) => !saved.answers[stepKey(it)]);
+    if (baseline.length) items = allItems.filter((it) => !saved.answers[savedKey(it)]);
     const res = [], total = allItems.length;
     const results = () => baseline.concat(res.filter(Boolean));
     const accuracy = () => Math.round(results().reduce((sum, r) => sum + r.score, 0) / results().length * 100);
@@ -668,6 +662,7 @@
         <div class="bar" role="progressbar" aria-label="Выполнение занятия" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${baseline.length}"><i></i></div><span class="count" aria-live="polite"></span>
       </div>
       <h1 class="sess-title">${esc(title)}</h1>
+      ${learningDraft?'<p class="session-note">Ответы и порядок сохраняются. Новые и знакомые примеры могут чередоваться; ранняя практика не двигает расписание.</p>':''}
       ${tracked ? `<p class="session-note">${alreadyComplete ? 'Повторение выполненного режима.' : baseline.length ? 'Продолжаем с оставшихся заданий.' : 'Каждый ответ сохраняется сразу. Можно продолжить позже.'}</p>` : ''}
       <div class="card ex"><div class="area"></div><div class="fb" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="actions"><button class="btn primary main" type="button"></button></div>
@@ -681,7 +676,13 @@
       $('.sess-top .bar').setAttribute('aria-valuenow', done);
     }
     function persistAnswer(r) {
+      if (learningDraft) {
+        learning=Learning.answerSession(learning,context.learningSession,Learning.key(r.item.ref),r);
+        if(r.ok)learning=Learning.acceptSessionAnswer(learning,context.learningSession,Learning.key(r.item.ref));
+        saveLearning();return;
+      }
       if (!tracked) return;
+      if(context.mode==='mc'){learning=Learning.recordRecognition(learning,context.unit,[{key:Learning.key(r.item.ref),ok:r.ok}]);saveLearning();}
       steps[entryId] = Steps.record(steps[entryId], stepKey(r.item), r, Date.now());
       Store.set('steps', steps);
       let row = activity.find((e) => e.id === r.eventId);
@@ -695,14 +696,20 @@
     }
     function commitCompleted() {
       if (reward) return;
-      if (onDone) onDone(accuracy());
-      reward = recordActivity({ ...context, session: sessionId, stepped: !!tracked, title }, tracked ? [] : res);
+      if(learningDraft){
+        reward=activity.some(e=>e.session===sessionId)?{xp:0}:recordActivity({...context,session:sessionId,title},results());
+        if(onDone)onDone(accuracy(),results());
+      }else{
+        if(onDone)onDone(accuracy(),results());
+        reward=recordActivity({ ...context, session: sessionId, stepped: !!tracked, title }, tracked ? [] : res);
+      }
     }
     function show() {
       answered = false;
       fb.className = 'fb'; fb.innerHTML = '';
       drawProgress(); area.innerHTML = '';
       ctl = R[items[pos].t](area, items[pos].data, finish) || {};
+      if(items[pos].ref && items[pos].ref.b && ['mc','fill','order','err'].includes(items[pos].t))area.insertAdjacentHTML('afterbegin',`<p class="muted small">Сохрани смысл и заданные слова: ${esc(items[pos].data.meaning)}</p>`);
       btn.style.display = ctl.check ? '' : 'none';
       btn.textContent = ctl.label || 'Проверить';
       btn.onclick = () => ctl.check && ctl.check();
@@ -726,7 +733,7 @@
           <div class="fb-actions">
             ${r.say ? `<button class="btn small say" type="button">${icon('volume')} Послушать</button>` : ''}
             ${!r.ok && r.override ? '<button class="btn small link ovr" type="button">Мой ответ тоже верный</button>' : ''}
-          </div>${Notes.render(Notes.forResult(it, r))}${reinforcement(it)}`;
+          </div>${Notes.render(answerNote(it, r))}${reinforcement(it)}`;
         const s = $('.say', fb); if (s) s.onclick = () => speak(r.say);
         const o = $('.ovr', fb);
         if (o) o.onclick = () => {
@@ -750,6 +757,8 @@
       $('.ex').innerHTML = `<div class="summary">
         <div class="bigpct">${pct}%</div><p>${msg}</p>
         ${rewardPanel(reward)}
+        ${learningDraft?'<p><a href="#/retention">Посмотреть следующие даты повторения →</a></p>':''}
+        ${context.kind==='review'?`<div class="week-context-next"><h3>Закрепи собственной речью</h3><p>После смешанной проверки выбери тему недели: прослушай контекст и расскажи свою ситуацию. В воскресенье начни с этого блока.</p>${[...new Set(results().map(r=>r.item.ref.u))].map(n=>`<a class="btn small" href="#/u/${n}/context">Unit ${n} · своя речь</a>`).join('')}</div>`:''}
         ${wrong.length ? `<h3>Ошибки (${wrong.length})</h3><ul class="wronglist">${wrong.map((r) => `<li>${r.correct || esc(r.item.data.full || '')}${r.user ? `<div class="muted small">ваш ответ: ${esc(r.user)}</div>` : ''}</li>`).join('')}</ul>` : ''}
         <div class="actions">
           ${wrong.length ? '<button class="btn primary again-wrong" type="button">Повторить ошибки</button>' : ''}
@@ -757,7 +766,7 @@
         </div></div>`;
       const aw = $('.again-wrong');
       if (aw) aw.onclick = () => session({ title: title + ' · ошибки', back, items: shuffle(wrong.map((r) => r.item)), onDone: null });
-      $('.again').onclick = () => session({ title, back, items: shuffle(allItems), onDone, context });
+      $('.again').onclick = () => learningDraft ? go('#/retention') : session({ title, back, items: shuffle(allItems), onDone, context });
       $('.back').onclick = () => go(back);
     }
     keyHandler = (e) => {
@@ -767,7 +776,7 @@
         if (btn.style.display !== 'none') { e.preventDefault(); btn.click(); }
       } else if (!answered && ctl.keys && /^[1-9]$/.test(e.key) && tag !== 'INPUT' && tag !== 'TEXTAREA') ctl.keys(+e.key);
     };
-    show();
+    if(items.length)show();else end();
   }
 
   // ---------- страницы ----------
@@ -917,6 +926,8 @@
           </div>
         </aside>
       </div></div>`;
+    app.insertAdjacentHTML('beforeend',learnUI.deskCard());
+    const weekUnits=Study.weekUnits(activity,day);if(Study.isWeekend(day)&&weekUnits.length)app.insertAdjacentHTML('beforeend',`<section class="card weekend-context"><h2>Воскресенье · своя речь</h2><p>Возьми одну тему недели, прослушай реплики и перескажи ситуацию своими словами.</p>${weekUnits.map(n=>`<a class="btn small" href="#/u/${n}/context">Unit ${n} →</a>`).join('')}</section>`);
     wireTodayPlan();
   }
   function reviewPage(day) {
@@ -1054,6 +1065,7 @@
               </a>`;
             }).join('')}</div>`).join('')}
           ${examCard(u)}
+          ${learnUI.unitCard(u.n)}
         </section>
       </div>
       <div class="unav">
@@ -1074,11 +1086,47 @@
   }
 
   // ---------- итоговая проверка ----------
-  function examItems(u) {
-    const pool = ['mc','fill','order','lgap','dict','err','tr'].flatMap(t => available(u,t) ? unitItems(u,t,false) : []);
-    return shuffle(Exam.select(pool));
+  function usedForms(n) {
+    const row=exams.units[n]||{history:[]},log=learning.forms[n]||[];
+    const used=log.map(r=>r.v).concat(row.history.concat(row.draft?[row.draft]:[]).filter(a=>!log.some(r=>r.event===a.id)).map(a=>a.items[0].ref.v).filter(Boolean));
+    if(!used.length)return [...new Set(learning.seen.filter(k=>k.startsWith(n+':transfer:')).map(k=>k.split(':')[2]))];
+    return used;
   }
-  function restoreExamItem(it) { return makeItem(it.t, D.units[it.ref.u], it.ref.k, it.ref.i); }
+  function nextBank(n) { return Learning.nextForm(usedForms(n)); }
+  function transferItem(it) { const q=Learning.question(it.ref);return q?{t:it.t,ref:{...it.ref},data:{...q.data,meaning:q.note.translation}}:null; }
+  function transferPool(n,v) {
+    const pool=[];
+    for(let i=0;i<8;i++)for(const t of ['mc','fill','order','lgap','dict']){
+      const item=transferItem({t,ref:{u:n,b:'transfer',v,k:'gap',i}});
+      if(t!=='order'||item.data.full.split(' ').length<=14)pool.push(item);
+    }
+    for(const [k,count] of [['err',3],['tr',2]])for(let i=0;i<count;i++)pool.push(transferItem({t:k,ref:{u:n,b:'transfer',v,k,i}}));
+    return pool;
+  }
+  function examItems(u) { return shuffle(Exam.select(transferPool(u.n,nextBank(u.n).form))); }
+  function restoreExamItem(it) { return it.ref.b?transferItem(it):makeItem(it.t, D.units[it.ref.u], it.ref.k, it.ref.i); }
+  function runTopics() {
+    let draft=learning.sessions.topics;
+    if(!draft){
+      const due=Learning.dueTopics(learning,todayKey()).slice(0,3);if(!due.length)return go('#/retention');
+      const items=shuffle(due.flatMap(r=>shuffle(Exam.select(transferPool(r.unit,nextBank(r.unit).form))).slice(0,6)));
+      learning=Learning.startSession(learning,'topics',items,Date.now()+'-topics',todayKey());saveLearning();draft=learning.sessions.topics;
+      due.forEach(r=>{const it=draft.items.find(it=>it.ref.u===r.unit);learning=Learning.useForm(learning,r.unit,it.ref.v,draft.id);});saveLearning();
+    }
+    const sessionId=draft.id;
+    session({title:'Повторение тем · без подсказок',back:'#/retention',items:draft.items.map(restoreExamItem),context:{kind:'practice',learningSession:'topics'},onDone:(pct,results)=>{
+      for(const n of [...new Set(results.map(r=>r.item.ref.u))]){
+        const rows=results.filter(r=>r.item.ref.u===n);learning=Learning.reviewTopic(learning,n,rows.filter(r=>r.ok).length>=5,todayKey(),sessionId);
+        learning=Learning.recordApplication(learning,n,rows.map(r=>({key:Learning.key(r.item.ref),ok:r.ok})));
+      }
+      learning=Learning.finishSession(learning,'topics');saveLearning();
+    }});
+  }
+  function answerNote(it,r) {
+    if(!r)return null;
+    if(it.ref && it.ref.b) { const q=Learning.question(it.ref);return q?{translation:q.note.translation,explanation:q.note.why}:null; }
+    return Notes.forResult(it,r);
+  }
   function correctText(it) { return it.ref.k === 'gap' ? it.data.full : it.data.a[0]; }
   function examCard(u) {
     const ready = unitCompletion(u).complete, status = Exam.status(exams,u.n);
@@ -1097,6 +1145,7 @@
     }
     const attempt = Exam.status(exams,u.n).last;
     if (!attempt || attempt.day !== todayKey()) return;
+    learning=Learning.recordApplication(learning,u.n,attempt.items.filter(it=>it.ref.b).map(it=>({key:Learning.key(it.ref),ok:attempt.answers[Exam.key(it)].ok}))); saveLearning();
     if (activity.some(e => e.session === attempt.id && e.kind === 'exam')) {
       if (Object.values(attempt.answers).filter(r => r.ok).length / 13 >= 0.8) closeGoal(u.n);
       return;
@@ -1117,10 +1166,11 @@
     const status = Exam.status(exams,u.n);
     app.innerHTML = `<div class="page-narrow exam-page"><div class="crumbs"><a href="#/u/${u.n}">Unit ${u.n}</a> / Экзамен</div>
       <span class="eyebrow" lang="en">The Study Club / Examination room</span><h1>Экзамен по Unit ${u.n}</h1><p class="page-intro" lang="en">${esc(u.title)}</p>
-      ${status.draft ? `<div class="card exam-intro"><h2>Продолжим с оставшегося</h2><p>Сохранено ${status.answered} из 13 ответов. Порядок и ответы этой попытки сохранятся.</p><button class="btn primary start-exam" type="button">Продолжить экзамен</button></div>` : status.last ? examResult(u,status.last) : `<div class="card exam-intro"><h2>Проверить себя без подсказок</h2><p>13 разных примеров: выбор, форма, порядок слов, исправление, перефразирование и аудирование. Для сдачи нужно не меньше 11 верных ответов.</p><p>Ответы сохраняются по одному. Перевод, правило и оценка появятся в конце; исправить ответ в этой попытке нельзя. В аудировании можно слушать повторно.</p><button class="btn primary start-exam" type="button">Начать экзамен</button></div>`}
+      ${!status.draft?`<p class="exam-bank-note">Следующая попытка: вариант ${nextBank(u.n).form} · ${nextBank(u.n).fresh?'отдельные примеры, которые здесь ещё не проверялись':'повторение знакомого набора; оба варианта уже использовались'}.</p>`:''}
+      ${status.draft ? `<div class="card exam-intro"><h2>Продолжим с оставшегося</h2><p>Сохранено ${status.answered} из 13 ответов. Порядок и ответы этой попытки сохранятся.</p><button class="btn primary start-exam" type="button">Продолжить экзамен</button></div>` : status.last ? examResult(u,status.last) : `<div class="card exam-intro"><h2>Проверить себя без подсказок</h2><p>13 разных примеров: выбор, форма, порядок слов, исправление, перефразирование и аудирование. Для сдачи нужно не меньше 11 верных ответов.</p><p>Ответы сохраняются по одному. Полный разбор и оценка появятся в конце; исправить ответ в этой попытке нельзя. В аудировании можно слушать повторно.</p><button class="btn primary start-exam" type="button">Начать экзамен</button></div>`}
     </div>`;
     const start = $('.start-exam');
-    if(start)start.onclick=()=>{if(!Exam.status(exams,u.n).draft){exams=Exam.start(exams,u.n,examItems(u),'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2),todayKey());saveExams();}examRun(u);};
+    if(start)start.onclick=()=>{if(!Exam.status(exams,u.n).draft){exams=Exam.start(exams,u.n,examItems(u),'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2),todayKey());saveExams();const a=Exam.status(exams,u.n).draft;if(a&&a.items[0].ref.b){learning=Learning.useForm(learning,u.n,a.items[0].ref.v,a.id);saveLearning();}}examRun(u);};
   }
   function examResult(u,attempt) {
     const results=attempt.items.map(d=>({...attempt.answers[Exam.key(d)],item:restoreExamItem(d)}));
@@ -1134,7 +1184,7 @@
       <div class="actions">${claimable?'<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>':''}<button class="btn ${passed?'':'primary'} start-exam" type="button">${passed?'Пересдать для себя':'Новая попытка'}</button><a class="btn ghost" href="#/mistakes">Закрепить ошибки</a></div>
       ${course.closed[todayKey()]===u.n?`<p class="exam-day-complete">${icon('check')} День закрыт · ранг <span lang="en">${Course.rank(course,todayKey()).current.en}</span><a href="#/calendar">Дневник →</a></p>`:''}
     </section><h2>Разбор всех ответов</h2><p class="muted small">Ошибки сохранены в журнале. Первое повторение — через день, затем через 3 и 7 дней.</p>
-      <div class="exam-analysis">${results.map((r,i)=>`<details class="exam-answer ${r.ok?'is-correct':'is-wrong'}"${!r.ok?' open':''}><summary><span>${i+1}. ${TYPES[r.item.t].name}</span><b>${r.ok?'Верно':'Разобрать'}</b></summary><p class="exam-user">Твой ответ: <span lang="en">${esc(r.user || '∅')}</span></p><p class="answer" lang="en">${esc(correctText(r.item))}</p>${Notes.render(Notes.forResult(r.item,r))}</details>`).join('')}</div>`;
+      <div class="exam-analysis">${results.map((r,i)=>`<details class="exam-answer ${r.ok?'is-correct':'is-wrong'}"${!r.ok?' open':''}><summary><span>${i+1}. ${TYPES[r.item.t].name}</span><b>${r.ok?'Верно':'Разобрать'}</b></summary><p class="exam-user">Твой ответ: <span lang="en">${esc(r.user || '∅')}</span></p><p class="answer" lang="en">${esc(correctText(r.item))}</p>${Notes.render(answerNote(r.item,r))}</details>`).join('')}</div>`;
   }
   function examRun(u) {
     const draft=Exam.status(exams,u.n).draft;
@@ -1142,7 +1192,7 @@
     const pending=draft.items.filter(it=>!draft.answers[Exam.key(it)]);
     let pos=0,answered=false,ctl={};
     app.innerHTML=`<div class="session exam-session"><div class="sess-top"><button class="btn ghost quit" aria-label="Выйти из экзамена" type="button">${icon('close')}</button><div class="bar" role="progressbar" aria-label="Выполнение экзамена" aria-valuemin="0" aria-valuemax="13"><i></i></div><span class="count" aria-live="polite"></span></div>
-      <h1 class="sess-title">Unit ${u.n} · Экзамен</h1><p class="session-note">Ответы сохраняются. Оценка и разбор — в конце.</p><div class="card ex"><div class="area"></div><div class="fb" role="status" aria-live="polite"></div><div class="actions"><button class="btn primary main" type="button"></button></div></div></div>`;
+      <h1 class="sess-title">Unit ${u.n} · Экзамен</h1><p class="session-note">${draft.items[0].ref.b?'Вариант '+draft.items[0].ref.v+' · отдельный банк примеров.':'Сохранённая попытка из прежнего банка.'} Ответы сохраняются. Оценка и разбор — в конце.</p><div class="card ex"><div class="area"></div><div class="fb" role="status" aria-live="polite"></div><div class="actions"><button class="btn primary main" type="button"></button></div></div></div>`;
     const area=$('.area'),fb=$('.fb'),btn=$('.main');
     $('.quit').onclick=()=>go('#/u/'+u.n+'/exam');
     const initial=Object.keys(draft.answers).length;
@@ -1151,6 +1201,7 @@
       if(!pending[pos])return examPage(u);
       answered=false;fb.innerHTML='';fb.className='fb';draw(initial+pos);
       const item=restoreExamItem(pending[pos]);ctl=R[item.t](area,{...item.data,exam:true},finish)||{};
+      if(item.ref.b&&['mc','fill','order','err'].includes(item.t))area.insertAdjacentHTML('afterbegin',`<p class="muted small">Сохрани смысл и заданные слова: ${esc(item.data.meaning)}</p>`);
       btn.style.display=ctl.check?'':'none';btn.textContent='Сохранить ответ';btn.onclick=()=>ctl.check&&ctl.check();
       const input=$('input,textarea',area);if(input&&!matchMedia('(pointer: coarse)').matches)input.focus();
     }
@@ -1213,6 +1264,7 @@
       </div></div>`;
     const ta = $('.essay');
     ta.value = Store.get(key, '');
+    learnUI.writingTools(u.n,$('.card'),ta);
     const wc = () => ($('.wc').textContent = `слов: ${(ta.value.match(/[A-Za-z']+/g) || []).length}`);
     wc();
     ta.oninput = () => { Store.set(key, ta.value); wc(); };
@@ -1272,6 +1324,7 @@
   function reviewItem(r) {
     const u = D.units[r.u];
     if (!u) return null;
+    if(r.b){let t=r.k==='gap'?['fill','order','dict'][r.stage%3]:r.k;let it=transferItem({t,ref:r});if(t==='order'&&it.data.full.split(' ').length>14)it.t='fill';it.data.review=true;return it;}
     prep(u);
     const modes = ['fill', 'order', 'dict'];
     let t = r.k === 'gap' ? modes[r.stage % modes.length] : r.k;
@@ -1280,21 +1333,23 @@
     if (it.data) it.data = { ...it.data, review: true };
     return it.data ? it : null;
   }
+  const errorCategories={review:'Нужен разбор',grammar:'Грамматическая форма',meaning:'Смысл и выбор конструкции',spelling:'Написание',order:'Порядок слов',listening:'Понимание на слух'};
   function mistakesPage() {
     const stats = Review.summary(mistakes, todayKey());
     const due = Review.due(mistakes, todayKey());
     const active = activeMistakes().sort((a,b) => a.due.localeCompare(b.due) || b.lapses - a.lapses);
     const rows = (list) => list.map((r) => {
-      const item = reviewItem(r), note = item && Notes.forResult(item, { ok: false });
+      const item = reviewItem(r), note = item && answerNote(item, { ok: false });
       const full = item && (item.data.full || item.data.q);
       return `<article class="error-entry"><div class="error-entry-top"><a href="#/u/${r.u}">Unit ${r.u} · ${esc(D.units[r.u].title)}</a><span>${r.stage === 3 ? 'Закреплено' : r.due <= todayKey() ? 'Пора повторить' : dateLabel(r.due)}</span></div>
         <p lang="en">${esc(full || '')}</p>${r.lastAnswer ? `<p class="muted small">Последняя ошибка: <span lang="en">${esc(r.lastAnswer)}</span> · ${esc(TYPES[r.lastMode] ? TYPES[r.lastMode].name : 'практика')}</p>` : ''}
-        <div class="error-entry-bottom"><span>Закрепление ${r.stage} / 3</span><span>Ошибок: ${r.lapses}</span></div>
+        <div class="error-entry-bottom"><span>Закрепление ${r.stage} / 3</span><span>Ошибок: ${r.lapses}</span></div><label class="error-category">Причина (твоя оценка) <select data-error-key="${esc(mkey(r))}" aria-label="Причина ошибки в Unit ${r.u}">${Object.entries(errorCategories).map(([k,label])=>`<option value="${k}"${r.category===k?' selected':''}>${esc(label)}</option>`).join('')}</select></label>
         ${note ? `<details class="error-rule"><summary>Вспомнить перевод и правило</summary>${Notes.render(note)}</details>` : ''}</article>`;
     }).join('');
     app.innerHTML = `<div class="page-narrow review-page">
       <span class="eyebrow" lang="en">The Study Club / Revision desk</span><h1>Работа над ошибками</h1>
       <p class="page-intro">Вернуться к правилу, вспомнить без подсказки, проверить через время.</p>
+      ${learnUI.deskCard()}
       <div class="review-stats"><div><b>${stats.due}</b><span>на сегодня</span></div><div><b>${stats.active}</b><span>закрепляем</span></div><div><b>${stats.mastered}</b><span>закреплено</span></div></div>
       <div class="card review-plan"><h2>${stats.due ? 'Пора вспомнить' : stats.active ? 'Повторения запланированы' : stats.mastered ? 'Сложные места закреплены' : 'Пока без ошибок'}</h2>
         <p>После ошибки — проверка через день, затем через 3 и 7 дней. Три верных ответа с интервалами закрепляют пример. Новая ошибка возвращает его в начало.</p>
@@ -1304,6 +1359,7 @@
       ${active.length ? `<h2>В работе · ${active.length}</h2><div class="error-list">${rows(active)}</div>` : ''}
       ${stats.mastered ? `<details class="mastered-errors"><summary>Закреплённые примеры · ${stats.mastered}</summary>${rows(mistakes.filter(r=>r.stage===3))}</details>` : ''}
     </div>`;
+    $$('[data-error-key]').forEach(el=>el.onchange=()=>{mistakes=mistakes.map(r=>mkey(r)===el.dataset.errorKey?{...r,category:el.value}:r);Store.set('mistakes',mistakes);});
     function run(list) { session({title:'Закрепление ошибок',back:'#/mistakes',items:list.slice(0,20).map(reviewItem).filter(Boolean)}); }
     const start = $('.start-due'); if(start)start.onclick = () => run(due);
     const early = $('.start-early'); if(early)early.onclick = () => run(active);
@@ -1377,6 +1433,7 @@
       </div></div>`;
     $('.theme').value = ['light', 'dark', 'system'].includes(settings.theme) ? settings.theme : 'light';
     $('.theme').onchange = (e) => { settings.theme = e.target.value; saveSettings(); applyTheme(); };
+    aiUI.settings($('.page-narrow'));
     $('.import-trigger').onclick = () => $('.import').click();
     $('.accent').value = settings.accent;
     $('.voice').value = settings.voice;
@@ -1410,6 +1467,7 @@
     };
     $('.reset').onclick = () => {
       if (!confirm('Удалить весь прогресс, ошибки и тексты?')) return;
+      aiUI.forget();
       Object.keys(localStorage).filter((k) => k.startsWith('egiu:')).forEach((k) => localStorage.removeItem(k));
       location.reload();
     };
@@ -1424,10 +1482,11 @@
 
   function route() {
     keyHandler = null;
+    releaseRecorders();
     if (synth) synth.cancel();
     if (recog) { recog.abort(); recog = null; }
     const p = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
-    const nav = { u: 'home', calendar: 'calendar', review: 'calendar', mix: 'mix', mistakes: 'mistakes', pron: 'pron', settings: 'settings' }[p[0]] || 'home';
+    const nav = { u: 'home', calendar: 'calendar', review: 'calendar', mix: 'mix', retention:'retention', phrases:'phrases', mistakes: 'mistakes', pron: 'pron', settings: 'settings' }[p[0]] || 'home';
     $$('[data-nav]').forEach((a) => {
       const active = a.dataset.nav === nav;
       a.classList.toggle('active', active);
@@ -1437,10 +1496,13 @@
     if (p[0] === 'u' && D.units[p[1]]) {
       const u = D.units[p[1]];
       if (p[2] === 'exam') examPage(u);
+      else if (p[2] === 'context') learnUI.contextPage(u.n);
       else if (p[2]) startUnit(u, p[2]);
       else unitPage(u);
     } else if (p[0] === 'calendar') calendarPage(Study.date(p[1]) ? p[1] : todayKey());
     else if (p[0] === 'review') reviewPage(Study.date(p[1]) ? p[1] : todayKey());
+    else if (p[0] === 'retention') learnUI.retentionPage();
+    else if (p[0] === 'phrases') learnUI.phrasesPage();
     else if (p[0] === 'mix') mixPage();
     else if (p[0] === 'mistakes') mistakesPage();
     else if (p[0] === 'pron') (p[1] ? labRun(p[1]) : labPage());
@@ -1452,6 +1514,10 @@
     window.scrollTo(0, 0);
   }
 
+  const Tutor=window.EGIUAITutor;
+  const apiOptions=()=>{const o=Store.get('apiSettings',{});return {model:Tutor.models[o.model]?o.model:Tutor.DEFAULT_MODEL,limit:Number.isFinite(o.limit)&&o.limit>=.1&&o.limit<=50?o.limit:5};};
+  const aiUI=window.EGIUAITutorUI({A:Tutor,esc,$,getOptions:apiOptions,setOptions:o=>Store.set('apiSettings',o),getRows:()=>Tutor.normalizeUsage(Store.get('aiUsage',[])),setRows:r=>Store.set('aiUsage',r),today:todayKey,getReview:(n,k)=>learning.reviews[n]&&learning.reviews[n][k],saveReview:(n,k,r)=>{learning=Learning.saveReview(learning,n,k,r,todayKey());saveLearning();}});
+  const learnUI = window.EGIULearningUI({app,$,$$,esc,L:Learning,getState:()=>learning,setState:s=>{learning=s;saveLearning();},today:todayKey,dateLabel,units:D.units,speak,toast,go,runTopics,wireRecorder,aiUI});
   window.addEventListener('hashchange', route);
   route();
 })();

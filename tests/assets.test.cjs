@@ -1,0 +1,2 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+test('versioned asset URLs match the released files so a refresh cannot mix stale module versions',()=>{const root=path.join(__dirname,'..'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');for(const m of html.matchAll(/(?:src|href)="([^"?]+)\?v=([a-f0-9]+)"/g)){const hash=crypto.createHash('sha256').update(fs.readFileSync(path.join(root,m[1]))).digest('hex').slice(0,10);assert.equal(m[2],hash,m[1]);}});

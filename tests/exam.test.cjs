@@ -43,3 +43,7 @@ test('all 145 real units produce thirteen unique assessable examples',()=>{
  fs.readdirSync(path.join(dir,'data')).filter(f=>f.endsWith('.js')).forEach(f=>vm.runInContext(fs.readFileSync(path.join(dir,'data',f),'utf8'),ctx));
  for(const u of ctx.EGIU.list){const gaps=Array.from(u.g,(g,i)=>{const m=g.match(/^(.*?)\[([^\]]+)\](?:\(([^)]*)\))?(.*)$/);const correct=m[2].split('|')[0].split('/')[0];const words=(m[1]+correct+m[4]).split(' ').length;return {i,words};});const p=['mc','fill','lgap','dict','order'].flatMap(t=>gaps.filter(g=>t!=='order'||g.words>=3&&g.words<=14).map(g=>({t,ref:{u:u.n,k:'gap',i:g.i}}))).concat(Array.from(u.e,(_,i)=>({t:'err',ref:{u:u.n,k:'err',i}})),Array.from(u.t,(_,i)=>({t:'tr',ref:{u:u.n,k:'tr',i}})));const b=E.select(p);assert.equal(b.length,13,'unit '+u.n);assert.equal(new Set(b.map(E.key)).size,13);}
 });
+test('transfer form identity survives paused exam export and cannot collide with original refs',()=>{
+ const a=bank().map(it=>({...it,ref:{...it.ref,b:'transfer',v:'A'}}));let s=E.start({},36,a,'transfer','2026-10-13');s=E.answer(s,36,E.key(a[0]),{ok:true,user:'new'});
+ s=E.normalize(JSON.parse(JSON.stringify(s)));assert.equal(E.status(s,36).draft.items[0].ref.b,'transfer');assert.equal(E.status(s,36).draft.items[0].ref.v,'A');assert.notEqual(E.key(a[0]),E.key(bank()[0]));assert.notEqual(E.key(a[0]),E.key({...a[0],ref:{...a[0].ref,v:'B'}}));
+});

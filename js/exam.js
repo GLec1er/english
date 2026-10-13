@@ -3,8 +3,8 @@
   'use strict';
   const Study = typeof module !== 'undefined' && module.exports ? require('./study.js') : root.EGIUStudy;
   const modes = ['mc','fill','order','lgap','dict','err','tr'];
-  const key = it => `${it.ref.u}:${it.ref.k}:${it.ref.i}`;
-  const validRef = r => r && Number.isInteger(r.u) && r.u >= 1 && r.u <= 145 && Number.isInteger(r.i) && r.i >= 0 && r.i < ({gap:8,err:3,tr:2}[r.k] || 0);
+  const key = it => it.ref.b ? `${it.ref.u}:${it.ref.b}:${it.ref.v}:${it.ref.k}:${it.ref.i}` : `${it.ref.u}:${it.ref.k}:${it.ref.i}`;
+  const validRef = r => r && Number.isInteger(r.u) && r.u >= 1 && r.u <= 145 && Number.isInteger(r.i) && r.i >= 0 && r.i < ({gap:8,err:3,tr:2}[r.k] || 0) && (!r.b || (r.b==='transfer' && ['A','B'].includes(r.v)));
   function select(pool, random = Math.random) {
     const bag = pool.slice(), used = new Set(), chosen = [];
     function take(t, n) {
@@ -22,7 +22,7 @@
   }
   function cleanAttempt(raw, unit) {
     if (!raw || typeof raw.id!=='string' || !raw.id || raw.id.length>100 || !Study.date(raw.day) || !Array.isArray(raw.items) || raw.items.length!==13) return null;
-    const items = raw.items.filter(it => it && modes.includes(it.t) && validRef(it.ref) && it.ref.u===unit && (it.ref.k==='gap' ? ['mc','fill','order','lgap','dict'].includes(it.t) : it.t===it.ref.k)).map(it=>({t:it.t,ref:{u:unit,k:it.ref.k,i:it.ref.i}}));
+    const items = raw.items.filter(it => it && modes.includes(it.t) && validRef(it.ref) && it.ref.u===unit && (it.ref.k==='gap' ? ['mc','fill','order','lgap','dict'].includes(it.t) : it.t===it.ref.k)).map(it=>({t:it.t,ref:{u:unit,k:it.ref.k,i:it.ref.i,...(it.ref.b?{b:it.ref.b,v:it.ref.v}:{})}}));
     if(items.length!==13 || new Set(items.map(key)).size!==13) return null;
     const answers={};
     items.forEach(it=>{const a=raw.answers && raw.answers[key(it)];if(a&&typeof a.ok==='boolean')answers[key(it)]={ok:a.ok,user:typeof a.user==='string'?a.user.slice(0,5000):''};});
