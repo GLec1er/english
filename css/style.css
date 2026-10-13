@@ -1968,6 +1968,7 @@ audio {
   .calendar-aside { display: contents; }
   .calendar-layout>.calendar-main { order: 2; }
   .calendar-aside>.today-plan { order: 1; }
+  .calendar-aside>.after-day-plan { order: 1; }
   .calendar-aside>.club-awards { order: 3; margin-top: 0; }
   .calendar-aside>.week-topics { order: 4; margin-top: 0; }
   .club-board { grid-template-columns: minmax(0,1fr) auto; gap: 18px; padding: 20px 0; }
