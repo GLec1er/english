@@ -2,10 +2,10 @@
 (function(root){
   'use strict';
   const Study=typeof module!=='undefined'&&module.exports?require('./study.js'):root.EGIUStudy;
-  const key=r=>`${r.u}:${r.k}:${r.i}`;
-  const valid=r=>r&&Number.isInteger(r.u)&&r.u>=1&&r.u<=145&&Number.isInteger(r.i)&&r.i>=0&&r.i<({gap:8,err:3,tr:2}[r.k]||0);
+  const key=r=>r.b?`${r.u}:${r.b}:${r.v}:${r.k}:${r.i}`:`${r.u}:${r.k}:${r.i}`;
+  const valid=r=>r&&Number.isInteger(r.u)&&r.u>=1&&r.u<=145&&Number.isInteger(r.i)&&r.i>=0&&r.i<({gap:8,err:3,tr:2}[r.k]||0)&&(!r.b||(r.b==='transfer'&&['A','B'].includes(r.v)));
   function normalize(raw,day){
-    const used=new Set();return (Array.isArray(raw)?raw:[]).filter(r=>{if(!valid(r)||used.has(key(r)))return false;used.add(key(r));return true;}).map(r=>({u:r.u,k:r.k,i:r.i,
+    const used=new Set();return (Array.isArray(raw)?raw:[]).filter(r=>{if(!valid(r)||used.has(key(r)))return false;used.add(key(r));return true;}).map(r=>({u:r.u,k:r.k,i:r.i,...(r.b?{b:r.b,v:r.v}:{}),category:['grammar','meaning','spelling','order','listening','review'].includes(r.category)?r.category:'review',
       stage:Number.isInteger(r.stage)&&r.stage>=0&&r.stage<=3?r.stage:0,
       lapses:Number.isInteger(r.lapses)&&r.lapses>=0?r.lapses:1,
       due:Study.date(r.due)?r.due:day,lastReviewDay:Study.date(r.lastReviewDay)?r.lastReviewDay:null,

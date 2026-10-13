@@ -37,3 +37,6 @@ test('malformed imported undo data is sanitized before manual confirmation',()=>
 test('imported undo cannot replace an error with a different question',()=>{
  const rows=R.normalize([{...ref,stage:0,lastEvent:'a',undo:{u:37,k:'gap',i:0,stage:3,due:day}}],day);assert.equal(R.undo(rows,ref,'a')[0].u,36);
 });
+test('transfer errors and categories preserve form identity while old refs retain their keys',()=>{
+ const newer={...ref,b:'transfer',v:'B'};const rows=R.normalize([ref,{...newer,category:'spelling'}],day);assert.equal(rows.length,2);assert.equal(rows[1].v,'B');assert.equal(rows[1].category,'spelling');assert.notEqual(R.key(rows[0]),R.key(rows[1]));assert.equal(R.key(rows[0]),'36:gap:0');
+});

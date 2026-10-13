@@ -1,0 +1,726 @@
+# Number(s) then four targeted sentence recipes. English cloze § Russian § semantic slot.
+[1]
+I [am checking|check|am check] @ right now. § Сейчас я проверяю @. § doc
+The team [is working|works|is work] @ this week. § На этой неделе команда работает @. § loc
+We [are preparing|prepare|are prepare] @ at the moment. § В данный момент мы готовим @. § event
+You [are carrying|carry|are carry] @. Let me help. § Ты несёшь @. Давай помогу. § item
+[2]
+I [check|am check|checks] @ every Monday. § Каждый понедельник я проверяю @. § doc
+Our group [meets|meet|is meet] @ every week. § Наша группа каждую неделю встречается @. § loc
+We [organise|organises|are organise] @ every year. § Каждый год мы организуем @. § event
+The caretaker [keeps|keep|is keep] @ in a cupboard. § Смотритель хранит @ в шкафу. § item
+[3]
+Usually I walk, but today I [am taking|take|am take] @. § Обычно я хожу пешком, но сегодня я беру @. § vehicle
+We [check|are check|checks] @ every morning; it is our routine. § Каждое утро мы проверяем @; это наша обычная работа. § doc
+The team [is working|work|is work] @ this month only. § Только в этом месяце команда работает @. § loc
+The club [organises|organise|is organise] @ every spring. § Каждую весну клуб организует @. § event
+[4]
+I [understand|am understanding|understands] @ now. § Теперь я понимаю @. § doc
+We [need|are needing|needs] @ for the project. § Для проекта нам нужен @. § item
+I [am thinking|think|am think] about @ at the moment, not giving an opinion. § Сейчас я обдумываю @, а не высказываю мнение. § event
+This box [belongs|is belonging|belong] to the team @. § Эта коробка принадлежит команде, которая работает @. § loc
+[5]
+We [checked|check|did checked] @ yesterday. § Вчера мы проверили @. § doc
+I [visited|have visited|did visited] @ last Tuesday. § В прошлый вторник я посетил @. § site
+They [organised|organise|did organised] @ in 2020. § В 2020 году они организовали @. § event
+She [brought|bring|did brought] @ yesterday. § Вчера она принесла @. § item
+[6]
+At ten yesterday, I [was checking|check|was check] @. § Вчера в десять я проверял @. § doc
+We [were working|work|were work] @ when the alarm rang. § Когда зазвонила сигнализация, мы работали @. § loc
+They [were preparing|prepare|were prepare] @ all afternoon yesterday. § Вчера весь день после обеда они готовили @. § event
+She [was carrying|carries|was carry] @ when I saw her. § Когда я её увидел, она несла @. § item
+[7]
+I [have lost|has lost|have lose] @, so I cannot find it now. § Я потерял @ и сейчас не могу его найти. § item
+We [have finished|has finished|have finish] @. It is ready now. § Мы закончили @. Теперь всё готово. § task
+She [has checked|have checked|has check] @. Everything is correct now. § Она проверила @. Теперь всё правильно. § doc
+They [have arrived|has arrived|have arrive] @. They are there now. § Они прибыли @. Сейчас они там. § destination
+[8]
+Have you ever [visited|visit|visiting] @? § Ты когда-нибудь посещал @? § site
+This is the first time I [have organised|organised|has organised] @. § Я впервые организую @. § event
+I [have never used|never use|has never used] @ in my life. § Я никогда в жизни не пользовался этим: @. § item
+We [have checked|has checked|have check] @ twice so far today. § Сегодня мы уже дважды проверили @. § doc
+[9]
+I [have been checking|am checking since|have been check] @ all morning and I am still working. § Я всё утро проверяю @ и ещё работаю. § doc
+We [have been working|are working since|have been work] @ since eight and have not stopped. § Мы работаем @ с восьми и ещё не остановились. § loc
+They [have been preparing|have preparing|have been prepare] @ for hours and are not finished. § Они несколько часов готовят @ и ещё не закончили. § event
+She [has been carrying|have been carrying|has been carry] @ for ten minutes. Her arms are tired. § Она десять минут несёт @. Её руки устали. § item
+[10]
+I [have checked|have been check|has checked] @. The check is complete. § Я проверил @. Проверка завершена. § doc
+We [have been working|have work|has been working] @ for hours; the work is still in progress. § Мы несколько часов работаем @; работа ещё идёт. § loc
+They [have prepared|have prepare|has prepared] @. Everything is ready. § Они подготовили @. Всё готово. § event
+I [have been carrying|have carry|has been carrying] @ for half an hour and am still carrying it. § Я полчаса несу @ и ещё продолжаю его нести. § item
+[11]
+How long [have you had|do you have|has you had] @? § Как давно у тебя есть @? § item
+I [have known|know since|has known] about @ for years. § Я уже много лет знаю об этом: @. § event
+We [have been working|work since|has been working] @ since January. § Мы работаем @ с января. § loc
+She [has been checking|checks since|have been checking] @ for two hours and is still busy. § Она уже два часа проверяет @ и ещё занята. § doc
+[12]
+We have been working @ [for|since|from] three weeks. § Мы работаем @ три недели. § loc
+I have had @ [since|for|during] last April. § У меня есть @ с прошлого апреля. § item
+I have been checking @ [for|since|from] an hour. § Я проверяю @ уже час. § doc
+We have been planning @ [since|for|during] Monday. § Мы планируем @ с понедельника. § event
+[13]
+We [visited|have visit|has visited] @ last winter. § Прошлой зимой мы посетили @. § site
+I [have lost|has lost|have lose] @ and cannot find it now. § Я потерял @ и сейчас не могу его найти. § item
+She [checked|has check|did checked] @ at nine yesterday. § Вчера в девять она проверила @. § doc
+They [have finished|has finished|have finish] @, so it is ready now. § Они закончили @, и теперь всё готово. § task
+[14]
+It is still morning. We [have checked|has checked|have check] @ twice this morning. § Сейчас ещё утро. За это утро мы уже дважды проверили @. § doc
+It is evening now. I [visited|have visit|did visited] @ this morning. § Сейчас вечер. Этим утром я посетил @. § site
+This week is not over. We [have organised|has organised|have organise] @ twice this week. § Эта неделя ещё не закончилась. За неделю мы уже дважды организовали @. § event
+Last week I [bought|have buy|did bought] @. § На прошлой неделе я купил @. § item
+[15]
+When we arrived, they [had finished|have finish|had finish] @, so there was nothing left to do. § Когда мы пришли, они уже закончили @, и делать больше было нечего. § task
+I could not check @ because I [had lost|have lose|had lose] my glasses earlier. § Я не смог проверить @, потому что раньше потерял очки. § doc
+By the time I reached @, the last visitors [had left|have leave|had leave]. § К тому времени как я добрался сюда: @, последние посетители уже ушли. § site
+She knew the route because she [had worked|have work|had work] @ before. § Она знала маршрут, потому что раньше работала @. § loc
+[16]
+I was tired because I [had been checking|have been check|had been check] @ for hours before lunch. § Я устал, потому что до обеда несколько часов проверял @. § doc
+We [had been working|have been work|had been work] @ for a month when the project ended. § Когда проект закончился, мы уже месяц работали @. § loc
+They were exhausted. They [had been preparing|have been prepare|had been prepare] @ all night. § Они были измотаны. Всю ночь они готовили @. § event
+Her arms hurt because she [had been carrying|has been carry|had been carry] @ all morning. § У неё болели руки, потому что всё утро она несла @. § item
+[17]
+I [have got|has got|am have] @ in my bag. § У меня в сумке есть @. § item
+We [have|has|are have] a meeting about @ every week. § Каждую неделю у нас встреча по этому поводу: @. § event
+She [is having|has got having|is have] a break @ right now. § Сейчас она отдыхает @. § loc
+Do you [have|has|having] @ with you? § У тебя с собой есть @? § doc
+[18]
+I [used to check|used to checking|use to checked] @ every week, but I no longer do. § Раньше я каждую неделю проверял @, но теперь больше этого не делаю. § doc
+We [used to meet|used to meeting|use to met] @, but our meeting place has changed. § Раньше мы встречались @, но место встреч изменилось. § loc
+Did you [use to organise|used to organise|use to organised] @ when you were a student? § Ты раньше организовывал @, когда был студентом? § event
+I did not [use to carry|used to carry|use to carried] @, but now I do. § Раньше я не носил с собой @, а сейчас ношу. § item
+[19]
+I [am visiting|am visit|is visiting] @ tomorrow; the appointment is booked. § Завтра я посещаю @; встреча уже назначена. § site
+The session about @ [starts|start|is start] at seven according to the programme. § По программе занятие про @ начинается в семь. § event
+We [are meeting|are meet|is meeting] @ on Friday; everyone has agreed. § В пятницу мы встречаемся @; все уже договорились. § loc
+The delivery of @ [arrives|arrive|is arrive] at noon according to the timetable. § По расписанию доставка привезёт @ в полдень. § item
+[20]
+I have decided: I [am going to check|going to check|am going check] @ tonight. § Я уже решил: сегодня вечером я проверю @. § doc
+We have already made a plan. We [are going to organise|going to organise|are going organise] @. § Мы уже составили план. Мы собираемся организовать @. § event
+Look at that loose handle! @ [is going to fall|going to fall|is going fall]. § Посмотри на незакреплённую ручку! Эта вещь сейчас упадёт: @. § item
+The team has decided to move. We [are going to work|going to work|are going work] @ next month. § Команда уже решила переехать. В следующем месяце мы будем работать @. § loc
+[21]
+You need help with @? I [will check|will to check|will checked] it for you. § Тебе нужна помощь с этим: @? Я проверю это для тебя. § doc
+You cannot carry @? I [will help|will to help|will helped] you. § Ты не можешь нести @? Я тебе помогу. § item
+I promise I [will finish|will to finish|will finished] @ tonight. § Обещаю, сегодня вечером я закончу @. § task
+[Shall we|Shall us|Shall we to] meet @? What do you think? § Давай встретимся @? Что думаешь? § loc
+[22]
+I think @ [will be|will to be|will been] popular. § Думаю, это будет популярно: @. § event
+I expect we [will finish|will to finish|will finished] @ next week. § Думаю, на следующей неделе мы закончим @. § task
+I am sure you [will find|will to find|will found] @ useful. § Уверен, тебе пригодится @. § doc
+They will probably [work|to work|worked] @ next year. § Вероятно, в следующем году они будут работать @. § loc
+[23]
+I decided yesterday. I [am going to check|going to check|am going check] @ tonight. § Я решил вчера. Сегодня вечером я собираюсь проверить @. § doc
+Oh, you need help with @? I [will help|will to help|will helped] you now. § О, тебе нужна помощь с этим: @? Я сейчас помогу. § task
+Look at the crowd waiting outside. @ [is going to be|going to be|is going be] busy. § Посмотри на толпу снаружи. Здесь будет много людей: @. § site
+I think the group [will organise|will to organise|will organised] @ next year. § Думаю, в следующем году группа организует @. § event
+[24]
+At ten tomorrow, I [will be checking|will checking|will be check] @. § Завтра в десять я буду проверять @. § doc
+By Friday, we [will have finished|will have finish|will has finished] @. § К пятнице мы закончим @. § task
+This time tomorrow, they [will be working|will working|will be work] @. § Завтра в это время они будут работать @. § loc
+By next month, she [will have organised|will have organise|will has organised] @. § К следующему месяцу она организует @. § event
+[25]
+I will call you when I [finish|will finish|finishes] @. § Я позвоню тебе, когда закончу @. § task
+We will start as soon as you [check|will check|checks] @. § Мы начнём, как только ты проверишь @. § doc
+If you [bring|will bring|brings] @, we can start. § Если ты принесёшь @, мы сможем начать. § item
+I will send a message after we [have arrived|will have arrived|has arrived] @. § Я отправлю сообщение после того, как мы прибудем @. § destination
+[26]
+I [can carry|can to carry|can carrying] @ without help. § Я могу нести @ без помощи. § item
+We will [be able to finish|can finish|be able finish] @ tomorrow. § Завтра мы сможем закончить @. § task
+After a difficult search yesterday, we [managed to find|managed find|managed finding] @. § Вчера после трудных поисков мы смогли найти @. § doc
+As children, we [could visit|could to visit|could visited] @ whenever we wanted. § В детстве мы могли посещать @, когда хотели. § site
+[27]
+We [could organise|could to organise|could organised] @ next month. It is one option. § Мы могли бы организовать @ в следующем месяце. Это один из вариантов. § event
+You [could have checked|could have check|could has checked] @ yesterday, but you did not. § Ты мог вчера проверить @, но не проверил. § doc
+I [could work|could to work|could worked] @ if they need help tomorrow. § Если завтра им понадобится помощь, я мог бы работать @. § loc
+We [could have finished|could have finish|could has finished] @ earlier, but we did not. § Мы могли раньше закончить @, но не закончили. § task
+[28]
+They have been carrying @ all day. They [must be|must to be|must been] tired. § Они весь день несли @. Должно быть, они устали. § item
+The figures contradict one another. @ [cannot be|cannot to be|cannot been] correct. § Цифры противоречат друг другу. Это не может быть правильным: @. § doc
+All the equipment is ready. Someone [must have finished|must have finish|must has finished] @. § Всё оборудование готово. Должно быть, кто-то уже закончил @. § task
+We saw her at home all evening. She [cannot have visited|cannot have visit|cannot has visited] @ then. § Мы видели её дома весь вечер. Она не могла в это время посетить @. § site
+[29]
+I am not sure. We [might organise|might to organise|might organised] @ next month. § Я не уверен. Возможно, в следующем месяце мы организуем @. § event
+I cannot find @. I [may have left|may have leave|may has left] it at home. § Я не могу найти @. Возможно, я оставил это дома. § item
+She [might be working|might working|might be work] @ now; I do not know. § Возможно, она сейчас работает @; я не знаю. § loc
+They [may not have checked|may not have check|may not has checked] @ yet. I am not certain. § Возможно, они ещё не проверили @. Я не уверен. § doc
+[30]
+We [might organise|might to organise|might organised] @; the plan is not confirmed. § Возможно, мы организуем @; план ещё не подтверждён. § event
+The bus is late. We might [as well walk|as well to walk|as well walking] @. § Автобус опаздывает. Пожалуй, лучше пойдём пешком @. § travel
+Do not call at ten: I [might be checking|might checking|might be check] @ then. § Не звони в десять: возможно, в это время я буду проверять @. § doc
+We [might not finish|might not to finish|might not finished] @ today; it is only a possibility. § Возможно, мы не закончим @ сегодня; это лишь предположение. § task
+[31]
+The rules say we [have to check|have check|has to check] @ before starting. § По правилам перед началом мы обязаны проверить @. § doc
+Yesterday we [had to carry|must carried|had carry] @ upstairs. § Вчера нам пришлось нести @ наверх. § item
+Next week she [will have to work|will must work|will have work] @. § На следующей неделе ей придётся работать @. § loc
+I [must finish|must to finish|must finished] @ tonight. It matters to me. § Я должен закончить @ сегодня вечером. Для меня это важно. § task
+[32]
+You [must not change|must not to change|must not changed] @. It is forbidden. § Ты не должен менять @. Это запрещено. § doc
+You [need not bring|need not to bring|need not brought] @. We already have one. § Тебе не обязательно приносить @. У нас это уже есть. § item
+We [did not have to finish|did not had to finish|did not have finish] @ yesterday; there was no deadline. § Вчера нам не требовалось заканчивать @: срока сдачи не было. § task
+You [need not have organised|need not have organise|need not has organised] @: you did it, but it was unnecessary. § Ты зря организовал @: ты сделал это, но необходимости не было. § event
+[33]
+You [should check|should to check|should checked] @ before you send it. § Тебе стоит проверить @ перед отправкой. § doc
+We [should have finished|should have finish|should has finished] @ yesterday, but we did not. § Нам следовало вчера закончить @, но мы не закончили. § task
+She [should be|should to be|should been] @ by now; I expect her there. § Она уже должна быть @; я ожидаю, что она там. § loc
+You [should not carry|should not to carry|should not carried] @ alone. It is too heavy. § Не стоит нести @ одному. Это слишком тяжело. § item
+[34]
+The organiser suggested that we [should check/check|should to check|should checked] @ again. § Организатор предложил, чтобы мы ещё раз проверили @. § doc
+It is essential that everyone [should bring/bring|should to bring|should brought] @. § Необходимо, чтобы каждый принёс @. § item
+They insisted that we [should finish/finish|should to finish|should finished] @ first. § Они настаивали, чтобы сначала мы закончили @. § task
+If you [should visit|should to visit|should visited] @, please tell me what it is like. § Если тебе доведётся посетить @, расскажи, как там. § site
+[35]
+We [had better check|had better to check|have better checked] @ now, or we may miss an error. § Нам лучше сейчас проверить @, иначе мы можем пропустить ошибку. § doc
+You [had better not carry|had better not to carry|have better not carried] @ alone; it is too heavy. § Лучше не неси @ один: это слишком тяжело. § item
+It is time we [finished|finish to|finished to] @; we have delayed long enough. § Пора бы нам закончить @: мы и так долго откладывали. § task
+It is time [to visit|visit to|to visited] @. § Пора посетить @. § site
+[36]
+It [would be|would to be|would been] useful to check @ together. § Было бы полезно вместе проверить @. § doc
+I would like [to organise|organising|to organised] @ one day. § Я хотел бы когда-нибудь организовать @. § event
+When I was a volunteer, I [would carry|would to carry|would carried] @ every morning. § Когда я был волонтёром, я каждое утро носил @. § item
+We tried everything, but the old equipment [would not work|would not to work|would not worked] @ yesterday. § Мы всё перепробовали, но вчера старое оборудование никак не работало @. § loc
+[37]
+Could you [check|to check|checked] @, please? § Не мог бы ты проверить @, пожалуйста? § doc
+Would you mind [carrying|to carry|carried] @ for a moment? § Ты не против понести @ немного? § item
+Would you like [to organise|organising|to organised] @ with us? § Ты хотел бы организовать @ вместе с нами? § event
+May I [work|to work|worked] @ today? § Можно мне сегодня поработать @? § loc
+[38]
+If we [check|will check|checks] @, we will find the problem. § Если мы проверим @, мы найдём проблему. § doc
+If I had time, I [would organise|would to organise|would organised] @. § Если бы у меня было время, я бы организовал @. § event
+If you [bring|will bring|brings] @, we can start. § Если ты принесёшь @, мы сможем начать. § item
+If I [worked|would work|worked to] @, I would walk to work. § Если бы я работал @, я бы ходил на работу пешком. § loc
+[39]
+If I [knew|would know|knew to] where @ was, I would tell you. § Если бы я знал, где находится @, я бы сказал тебе. § item
+I wish I [could visit|could to visit|could visited] @, but I cannot. § Жаль, что я не могу посетить @. § site
+If we [had|would have|had to have got] more time, we would check @. § Если бы у нас было больше времени, мы бы проверили @. § doc
+I wish I [worked|would work to|worked to] @, but I work elsewhere. § Жаль, что я не работаю @; я работаю в другом месте. § loc
+[40]
+If I [had checked|have checked|had check] @ yesterday, I would have noticed the error. § Если бы вчера я проверил @, я бы заметил ошибку. § doc
+I wish we [had finished|have finish|had finish] @ last week. § Жаль, что на прошлой неделе мы не закончили @. § task
+If she had come, she [would have visited|would have visit|would has visited] @. § Если бы она приехала, она бы посетила @. § site
+I wish I [had brought|have bring|had bring] @ yesterday. § Жаль, что вчера я не принёс @. § item
+[41]
+I wish I [could organise|could to organise|could organised] @, but I cannot. § Жаль, что я не могу организовать @. § event
+I wish we [had checked|have check|had check] @ before sending it. § Жаль, что мы не проверили @ перед отправкой. § doc
+I wish they [would stop|would to stop|would stopped] making noise @. It is annoying. § Хотелось бы, чтобы они перестали шуметь @. Это раздражает. § loc
+I hope we [can finish|can to finish|can finished] @ tomorrow. § Надеюсь, завтра мы сможем закончить @. § task
+[42]
+@ [was checked|was check|checked by] yesterday. § Вчера проверили @. § doc
+@ [is kept|is keep|kept by] in a locked cupboard. § Эта вещь хранится в закрытом шкафу: @. § item
+@ [was organised|was organise|organised by] by volunteers. § Волонтёры организовали @. § event
+@ [is cleaned|is clean|cleaned by] every morning. § Это место убирают каждое утро: @. § site
+[43]
+@ [is being checked|is being check|is checking by] right now. § Сейчас проверяют @. § doc
+@ [has been repaired|has been repair|has repaired by] and is ready to use. § Эта вещь отремонтирована и готова к использованию: @. § item
+@ [will be organised|will be organise|will organised by] next month. § В следующем месяце организуют @. § event
+@ [must be cleaned|must be clean|must cleaned by] before it opens. § Это место нужно убрать перед открытием: @. § site
+[44]
+I [was given|was give|was gave] @ as a present. § Мне подарили @. § item
+We [were sent|were send|were sented] @ yesterday. § Вчера нам прислали @. § doc
+The volunteer [got injured|got injure|got injuring] while working @. § Волонтёр получил травму, работая @. § loc
+We [were shown|were show|were showed] @ during the visit. § Во время визита нам показали @. § site
+[45]
+@ [is said to be|is said be|is say to be] very popular. § Говорят, это очень популярно: @. § event
+We [are supposed to check|are supposed check|are suppose to check] @ before leaving. § Предполагается, что перед уходом мы проверим @. § doc
+@ [is believed to have|is believed have|is believe to have] opened in 1920. § Считается, что это место открылось в 1920 году: @. § site
+You [are not supposed to move|are not supposed move|are not suppose to move] @. § Предполагается, что ты не будешь перемещать @. § item
+[46]
+We [had @ repaired|had repaired @ ourselves|had @ repair] by a technician yesterday. § Вчера техник отремонтировал нам @. § item
+I [am having @ checked|am checking @ myself|am having @ check] by an editor today. § Сегодня редактор проверяет для меня @. § doc
+They [had @ cleaned|cleaned @ themselves|had @ clean] by a professional last week. § На прошлой неделе специалист убрал для них @. § site
+We will [have @ delivered|deliver @ ourselves|have @ deliver] by a courier tomorrow. § Завтра курьер доставит нам @. § item
+[47]
+She told me she [would check|would to check|would checked] @ later. § Она сказала мне, что проверит @ позже. § doc
+He said he [had brought|had bring|had brang] @ the day before. § Он сказал, что принёс @ накануне. § item
+They [told us|said us|told to us] they were planning @. § Они сказали нам, что планируют @. § event
+She said she [could work|could to work|could worked] @ the following day. § Она сказала, что сможет работать @ на следующий день. § loc
+[48]
+She asked me [to check|check to|to checked] @. § Она попросила меня проверить @. § doc
+The organiser told us [not to move|to not moved|not move to] @. § Организатор сказал нам не перемещать @. § item
+He says he [works|work|is work] @; this is still true. § Он говорит, что работает @; это по-прежнему так. § loc
+They invited me [to visit|visit to|to visited] @. § Они пригласили меня посетить @. § site
+[49]
+When [did you check|you did checked|did you checked] @? § Когда ты проверил @? § doc
+Who [brought|did brought|bringed] @ yesterday? § Кто вчера принёс @? § item
+Where [does she work|she does works|does she works]? Is it @? § Где она работает? Здесь: @? § loc
+Why [are they organising|they are organise|are they organise] @? § Почему они организуют @? § event
+[50]
+Do you know where [@ is|is @|@ are]? § Ты знаешь, где находится @? § item
+Can you tell me when [@ starts|does @ starts|@ start]? § Ты можешь сказать мне, когда начинается @? § event
+She asked whether I [had checked|had check|has checked] @. § Она спросила, проверил ли я @. § doc
+I wonder why [they work|do they works|they works] @. § Интересно, почему они работают @. § loc
+[51]
+I have checked @. — So [have I|do I|I have do]. § Я проверил @. — И я тоже. § doc
+I cannot carry @. — Neither [can I|do I|I can do]. § Я не могу нести @. — Я тоже. § item
+I work @. — So [do I|am I|I do am]. § Я работаю @. — И я тоже. § loc
+Will @ be useful? — I hope [so|it|be]. § Будет ли это полезно: @? — Надеюсь, да. § event
+[52]
+You checked @, [didn't you|don't you|didn't you did]? § Ты проверил @, не так ли? § doc
+She is working @, [isn't she|doesn't she|isn't she is]? § Она работает @, не так ли? § loc
+We cannot carry @, [can we|can't we|can we can]? § Мы не можем нести @, не так ли? § item
+Let's organise @, [shall we|will us|shall us]? § Давай организуем @, хорошо? § event
+[53]
+I enjoy [checking|to check|checked] @. § Мне нравится проверять @. § doc
+Would you mind [carrying|to carry|carried] @? § Ты не против понести @? § item
+We are considering [organising|to organise|organised] @. § Мы рассматриваем возможность организовать @. § event
+She suggested [meeting|to meet|met] @. § Она предложила встретиться @. § loc
+[54]
+I promised [to check|checking to|to checked] @. § Я обещал проверить @. § doc
+We decided [to organise|organising to|to organised] @. § Мы решили организовать @. § event
+She managed [to carry|carrying to|to carried] @ upstairs. § Она смогла отнести @ наверх. § item
+They agreed [to meet|meeting to|to met] @. § Они согласились встретиться @. § loc
+[55]
+I want you [to check|checking|to checked] @. § Я хочу, чтобы ты проверил @. § doc
+They reminded me [to bring|bringing|to brought] @. § Они напомнили мне принести @. § item
+She made us [finish|to finish|finished] @. § Она заставила нас закончить @. § task
+They let me [work|to work|worked] @. § Они разрешили мне работать @. § loc
+[56]
+I clearly remember [checking|to check|checked] @ yesterday; I can picture doing it. § Я хорошо помню, как вчера проверял @; я могу представить это действие. § doc
+Please remember [to bring|bringing to|to brought] @ tomorrow. § Пожалуйста, не забудь завтра принести @. § item
+I regret [organising|to organise|organised] @; it was a bad decision. § Я жалею, что организовал @; это было плохое решение. § event
+After discussing costs, we went on [to plan|planning to|to planned] @; it was the next topic. § После обсуждения расходов мы перешли к планированию @; это была следующая тема. § event
+[57]
+I tried [to move|moving to|to moved] @, but it was too heavy. § Я пытался переместить @, но это было слишком тяжело. § item
+Try [checking|check to|checked] @ first as an experiment; it might solve the problem. § Попробуй для начала проверить @: возможно, это решит проблему. § doc
+We need [to finish|finishing to|to finished] @ today. § Сегодня нам нужно закончить @. § task
+@ needs [cleaning|to cleaning|cleaned]. § Это место нуждается в уборке: @. § site
+[58]
+I would like [to visit|visiting|to visited] @. § Я хотел бы посетить @. § site
+We would love [to organise|organising|to organised] @. § Мы очень хотели бы организовать @. § event
+I like [checking/to check|check to|checked] @ carefully. § Мне нравится внимательно проверять @. § doc
+She would prefer [to work|working|to worked] @. § Она предпочла бы работать @. § loc
+[59]
+I would rather [check|to check|checked] @ now. § Я бы предпочёл проверить @ сейчас. § doc
+I would rather you [brought|bring to|brought to] @ tomorrow. § Я бы предпочёл, чтобы ты принёс @ завтра. § item
+We prefer working @ [to|than|from] working at home. § Мы предпочитаем работу @ работе дома. § loc
+I would prefer [to organise|organising to|to organised] @ myself. § Я предпочёл бы сам организовать @. § event
+[60]
+Please check @ before [leaving|to leave|left]. § Пожалуйста, проверь @ перед уходом. § doc
+We are interested in [organising|to organise|organised] @. § Нас интересует возможность организовать @. § event
+Thank you for [bringing|to bring|brought] @. § Спасибо, что принёс @. § item
+I look forward to [working|work|worked] @. § Я с нетерпением жду работы @. § loc
+[61]
+I am used to [checking|check|checked] @ every morning. § Я привык каждое утро проверять @. § doc
+We are getting used to [working|work|worked] @. § Мы привыкаем работать @. § loc
+She is not used to [carrying|carry|carried] @. § Она не привыкла носить @. § item
+We used to [organise|organising|organised] @, but we do not any more. § Раньше мы организовывали @, но теперь больше этого не делаем. § event
+[62]
+We succeeded [in organising|to organise|on organise] @. § Нам удалось организовать @. § event
+She insisted [on checking|to check|in check] @. § Она настояла на проверке @. § doc
+They thanked me [for bringing|to bring|for brought] @. § Они поблагодарили меня за то, что я принёс @. § item
+We dream [of working|to work|of worked] @. § Мы мечтаем работать @. § loc
+[63]
+There is no point [in checking|to check|in checked] @ again; nothing has changed. § Нет смысла снова проверять @: ничего не изменилось. § doc
+@ is worth [visiting|to visit|visited]. § Это место стоит посетить: @. § site
+We had difficulty [carrying|to carry|carried] @ upstairs. § Нам было трудно нести @ наверх. § item
+I spent an hour [planning|to plan|planned] @. § Я потратил час на планирование @. § event
+[64]
+I came here [to check|for check|to checked] @. § Я пришёл сюда, чтобы проверить @. § doc
+We moved @ [so that|for to|so to] everyone could hear us. § Мы переместились @, чтобы все могли нас слышать. § loc
+This cover is [for protecting|for protect|to protecting] @. § Этот чехол предназначен для защиты этой вещи: @. § item
+I sent an invitation [to announce|for announce|to announced] @. § Я отправил приглашение, чтобы объявить @. § event
+[66]
+I am afraid [to move|moving to|to moved] @ because I might break it. § Я боюсь перемещать @, потому что могу сломать эту вещь. § item
+I am interested [in checking|to checking|in checked] @; I would like to investigate it. § Мне интересно проверить @; я хотел бы изучить это. § doc
+We were surprised [to find|finding to|to found] @ closed. § Мы удивились, обнаружив, что это место закрыто: @. § site
+We are sorry [for cancelling|to cancelling|for cancelled] @; we apologise. § Мы извиняемся за отмену @. § event
+[67]
+I saw her [carrying|to carry|carried] @; she was halfway across the room. § Я видел, как она несла @; она была на середине комнаты. § item
+We watched them [check|to check|checked] @ from start to finish. § Мы наблюдали, как они проверили @ от начала до конца. § doc
+I heard people [talking|to talk|talked] about @ as I walked past. § Проходя мимо, я слышал, как люди говорили про @. § event
+I saw him [enter|to enter|entered] @; I witnessed the whole action. § Я видел, как он вошёл сюда: @; я видел всё действие. § site
+[68]
+[Having checked|Have checked|Having check] @, we sent it to the team. § Проверив @, мы отправили это команде. § doc
+[Feeling|Feel to|Felt to] tired, I took a break @. § Чувствуя усталость, я отдохнул @. § loc
+She stood by the door, [holding|hold to|held to] @. § Она стояла у двери, держа @. § item
+[Not knowing|Not know to|Not knew] the cost, we delayed @. § Не зная стоимости, мы отложили @. § event
+[65]
+I am glad [to have checked|to have check|to has checked] @ already. § Я рад, что уже проверил @. § doc
+It is difficult [to carry|carrying to|to carried] @ upstairs. § Трудно нести @ наверх. § item
+We were happy [to visit|visiting to|to visited] @. § Мы были рады посетить @. § site
+I am pleased [to organise|organising to|to organised] @ with you. § Я рад организовать @ вместе с тобой. § event
+[69]
+We need [some information|an information|informations] about @. § Нам нужна информация про @. § event
+I need [a chair|chair|a chairs] @. § Мне нужен стул @. § loc
+Can you give me [some advice|an advice|advices] about @? § Ты можешь дать мне совет про @? § doc
+We need [some equipment|an equipment|equipments] to move @. § Нам нужно оборудование, чтобы переместить @. § item
+[70]
+I had [an experience|experience a|an experiences] I will never forget @. § Здесь у меня был опыт, который я никогда не забуду: @. § loc
+We do not have [much time|many time|a times] to finish @. § У нас мало времени, чтобы закончить @. § task
+There is [a hair|a hairs|hair a] on @; just one strand. § На этой вещи один волос: @. § item
+We need [some paper|a paper sheets|papers a] to print @ on. § Нам нужна бумага, чтобы напечатать @. § doc
+[71]
+@ is [an interesting event|a interesting event|interesting event a]. § Это интересное мероприятие: @. § event
+We bought [some new chairs|a new chairs|new chair some] for @. § Мы купили несколько новых стульев для этого места: @. § site
+There is [a useful note|an useful note|useful note a] on @. § На этом документе есть полезная заметка: @. § doc
+We need [a box|an box|box a] for @. § Нам нужна коробка для этой вещи: @. § item
+[72]
+I found [a|an|a the] note about @; I had not seen it before. § Я нашёл какую-то заметку про @; раньше я её не видел. § event
+I found a note on @. [The|A the|An the] note had a phone number. § Я нашёл записку на этой вещи: @. В записке был номер телефона. § item
+@ has only one entrance. Wait at [the|a the|an the] entrance. § У этого места только один вход: @. Подожди у входа. § site
+We need [an|a|an a] extra copy of @. § Нам нужна дополнительная копия этого документа: @. § doc
+[73]
+Who is [the|a the|an the] person in charge of @? § Кто именно отвечает за @? § event
+@ is on [the|a the|an the] second floor. § Это место находится на втором этаже: @. § site
+Please put @ on [the|a the|an the] table by the door; there is only one. § Пожалуйста, положи @ на стол у двери; там один стол. § item
+Where is [the|a the|an the] latest version of @? § Где последняя версия этого документа: @? § doc
+[74]
+After checking @, I went [to bed|to the bed as sleep|to a bed as sleep] to sleep. § Проверив @, я лёг спать. § doc
+The injured volunteer is [in hospital|in a hospital as patient the|in hospital the] after the accident @. § После происшествия здесь волонтёр лежит в больнице: @. § loc
+We went [to the school|to school the|to a school the] to repair @, not to study. § Мы пошли в здание школы, чтобы отремонтировать @, а не учиться. § item
+After @, we all went [home|to home|at home to]. § После этого мероприятия мы все пошли домой: @. § event
+[75]
+[Children|The children all world|Childrens] everywhere need safe places like @. § Детям во всём мире нужны безопасные места, подобные этому: @. § site
+[Music|The music all general|Musics] can help people relax @. § Музыка может помочь людям расслабиться @. § loc
+We need to protect [nature|the nature all general|natures] while planning @. § Планируя @, нам нужно беречь природу. § event
+[The volunteers|Volunteers the|The volunteer are] who checked @ are waiting outside. § Волонтёры, которые проверили @, ждут снаружи. § doc
+[76]
+[The elderly|The elderlies|Elderly the] may need help carrying @. § Пожилым людям может понадобиться помощь с переноской этой вещи: @. § item
+One musician played [the piano|piano the|the pianos a] at @. § На этом мероприятии один музыкант играл на пианино: @. § event
+[The unemployed|The unemployeds|Unemployed the] can use the training room @. § Безработные могут пользоваться учебной комнатой @. § loc
+[The telephone|Telephone the|The telephone a] changed communication; we use one to discuss @. § Телефон изменил общение; мы используем его, чтобы обсудить @. § doc
+[77]
+We discussed @ while travelling across [Europe|the Europe|a Europe]. § Мы обсуждали @, путешествуя по Европе. § event
+We took @ to [the Netherlands|Netherlands the|a Netherlands]. § Мы отвезли @ в Нидерланды. § item
+A visitor from [Canada|the Canada|a Canada] checked @. § Посетитель из Канады проверил @. § doc
+We talked about [the Atlantic|Atlantic the|an Atlantic] @. § Мы говорили об Атлантическом океане @. § loc
+[78]
+We discussed @ at [the National Gallery|National Gallery the|a National Gallery the]. § Мы обсуждали @ в Национальной галерее. § event
+I bought @ near [Oxford Street|the Oxford Street|an Oxford Street]. § Я купил @ рядом с Оксфорд-стрит. § item
+The story about @ appeared in [The Times|Times the|a Times the]. § Рассказ про @ появился в газете The Times. § site
+We checked @ near [Tower Bridge|the Tower Bridge|a Tower Bridge]. § Мы проверили @ рядом с Тауэрским мостом. § doc
+[79]
+The scissors near @ [are|is|be] blunt. § Ножницы рядом с этой вещью затупились: @. § item
+The news about @ [is|are|be] encouraging. § Новости про @ обнадёживают. § event
+There [are|is|be] three people checking @. § Три человека проверяют @. § doc
+Two [children|childs|childrens] are waiting @. § Двое детей ждут @. § loc
+[80]
+Please use the [office printer|office's printers a|offices printer a] to print @. § Пожалуйста, распечатай @ на офисном принтере. § doc
+There is a [meeting room|meetings room a|meeting's rooms a] @. § Здесь есть переговорная: @. § loc
+We need a [two-hour meeting|two-hours meeting|two hour's meeting] to plan @. § Нам нужна двухчасовая встреча, чтобы спланировать @. § event
+Put @ in the [storage box|storages box a|storage's boxes a]. § Положи @ в коробку для хранения. § item
+[81]
+I borrowed [my neighbour's|my neighbours's|my neighbour is] copy of @. § Я взял экземпляр этого документа у соседа: @. § doc
+[The end of|The end's of|The of end] @ was very quiet. § В конце этого мероприятия было очень тихо: @. § event
+@ is in the [volunteers'|volunteers's|volunteers are] cupboard; several volunteers share it. § Эта вещь в шкафу волонтёров; шкафом пользуются несколько человек: @. § item
+We need [a week's|a weeks|a week is] notice before working @. § Нам нужно предупреждение за неделю до начала работы @. § loc
+[82]
+I checked @ [myself|me|myselfs]; nobody helped. § Я сам проверил @; мне никто не помогал. § doc
+We enjoyed [ourselves|us|ourselfs] at @. § Мы хорошо провели время на этом мероприятии: @. § event
+She hurt [herself|her|herselfs] while carrying @. § Она поранилась, когда несла @. § item
+They introduced [themselves|them|theirselves] @. § Они представились @. § loc
+[83]
+A friend of [mine|my|me] helped check @. § Один мой друг помог проверить @. § doc
+We organised @ on [our own|ours own|us own]. § Мы самостоятельно организовали @. § event
+She carried @ by [herself|her|hers]. § Она сама несла @. § item
+I have my [own|owns|owner] desk @. § У меня есть собственный стол @. § loc
+[84]
+[There is|There are|There be] a problem with @. § С этим есть проблема: @. § doc
+[It is|There is it|It are] difficult to carry @ alone. § Трудно нести @ одному. § item
+[There are|There is|There be] two entrances to @. § У этого места два входа: @. § site
+[It was|There was it|It were] nice to organise @ together. § Было приятно вместе организовать @. § event
+[85]
+We need [some|some a|any a] help with @. § Нам нужна помощь с этим: @. § task
+Do you have [any|any a|some a] questions about @? § У тебя есть какие-нибудь вопросы про @? § doc
+Would you like [some|some a|any a] tea before @? § Хочешь чаю перед этим мероприятием: @? § event
+I do not have [any|any a|some a] space for @. § У меня нет места для этой вещи: @. § item
+[86]
+There is [no|none|no a] problem with @. § С этим нет проблем: @. § doc
+How many people are helping with @? — [None|No|Nobody a]. § Сколько людей помогают с этим мероприятием: @? — Ни одного. § event
+I saw [nobody|nobody not|anybody no] @. § Я никого не видел @. § loc
+We have [nothing|nothing not|anything no] to protect @ with. § Нам нечем защитить эту вещь: @. § item
+[87]
+We do not have [much|many|much a] time to check @. § У нас мало времени на проверку этого документа: @. § doc
+How [many|much|many a] people will attend @? § Сколько людей придёт на это мероприятие: @? § event
+We have [a few|a little|a few a] boxes to pack @ in. § У нас есть несколько коробок, чтобы упаковать @. § item
+There is [a little|a few|a little a] space left @, enough for one more chair. § Здесь осталось немного места, достаточно ещё для одного стула: @. § loc
+[88]
+Most [of the|of|of a the] people at @ were volunteers. § Большинство людей на этом мероприятии были волонтёрами: @. § event
+Some [of my|of|of a my] friends helped check @. § Некоторые из моих друзей помогли проверить @. § doc
+[Most|Most of|Mosts] people cannot carry @ alone. § Большинство людей не могут нести @ в одиночку. § item
+All [of us/us|of we|of our] worked @. § Все мы работали @. § loc
+[89]
+[Both|Boths|Both of a] my friends helped check @; there were two of them. § Оба моих друга помогли проверить @; их было двое. § doc
+Neither [of the|of|of a the] two doors to @ was open. § Ни одна из двух дверей в это место не была открыта: @. § site
+You can either carry @ [or|nor|and or] help with the list. § Ты можешь либо понести @, либо помочь со списком. § item
+Neither the organiser [nor|or|and nor] the assistant could attend @. § Ни организатор, ни помощник не смогли прийти на это мероприятие: @. § event
+[90]
+We check @ [every|all|every a] Monday. § Мы проверяем @ каждый понедельник. § doc
+We spent the [whole|every|whole a] day planning @. § Мы провели весь день, планируя @. § event
+Everybody [is|are|be] waiting @. § Все ждут @. § loc
+We packed [all the|every the|all a the] equipment, including @. § Мы упаковали всё оборудование, включая эту вещь: @. § item
+[91]
+[Each of|Every of|Eachs of] the four volunteers checked @. § Каждый из четырёх волонтёров проверил @. § doc
+We help [each other|every other|each others] carry @. § Мы помогаем друг другу нести @. § item
+[Every|Every of|Everys] room near @ has a window. § В каждой комнате рядом с этим местом есть окно: @. § site
+We received two invitations to @ and read [each one|every of one|eachs one] separately. § Мы получили два приглашения на это мероприятие и прочли каждое отдельно: @. § event
+[92]
+The person [who/that|which|who's] checked @ is outside. § Человек, который проверил @, находится снаружи. § doc
+@ is an event [which/that|who|which's] brings neighbours together. § Это мероприятие, которое объединяет соседей: @. § event
+The volunteer [who/that|which|who's] carried @ has left. § Волонтёр, который нёс @, ушёл. § item
+@ is a place [which/that|who|which's] needs repairs. § Это место, которому нужен ремонт: @. § site
+[93]
+@ is the document [that/which/-|what|who's] I checked yesterday. § Это документ, который я вчера проверил: @. § doc
+She is the person [who/that/-|what|who's] we asked about @. § Она тот человек, которого мы спросили про @. § event
+@ is the item [that/which/-|what|who's] I brought. § Это вещь, которую я принёс: @. § item
+@ is the place [that/which/-|what|who's] we visited. § Это место, которое мы посетили: @. § site
+[94]
+I met a volunteer [whose|who's|whose's] job was to check @. § Я встретил волонтёра, чьей задачей было проверить @. § doc
+@ is the place [where|what|where's] our group meets. § Это место, где встречается наша группа: @. § site
+The organiser to [whom|whose|whom's] I spoke was planning @. § Организатор, с которым я говорил, планировал @. § event
+I helped a person [whose|who's|whose's] bag contained @. § Я помог человеку, в чьей сумке лежала эта вещь: @. § item
+[95]
+My colleague, [who|that|who's] checked @, is away today. § Мой коллега, который проверил @, сегодня отсутствует. § doc
+@, [which|that|which's] is a public building, opens at nine. § Это место является общественным зданием и открывается в девять: @. § site
+My sister, [who|that|who's] carried @, is a volunteer. § Моя сестра, которая несла @, работает волонтёром. § item
+@, [which|that|which's] happens every year, is very popular. § Это мероприятие проходит каждый год и очень популярно: @. § event
+[96]
+Ten people came to @, most of [whom|them|whoms] were neighbours. § Пришло десять человек, большинство из которых были соседями: @. § event
+We checked @, [which|what|which's] took an hour. § Мы проверили @, что заняло час. § doc
+@ has two entrances, neither of [which|them|whichs] is wide enough. § У этого места два входа, ни один из которых недостаточно широкий: @. § site
+I dropped @, [which|what|which's] surprised everyone. § Я уронил @, что всех удивило. § item
+[97]
+The person [checking|checked|checking to] @ is our organiser. § Человек, проверяющий @, — наш организатор. § doc
+@, [built|building|builded] in 1910, needs repairs. § Это место построили в 1910 году, и оно нуждается в ремонте: @. § site
+The volunteer [carrying|carried|carrying to] @ is waiting outside. § Волонтёр, несущий @, ждёт снаружи. § item
+The people [invited|inviting|invited to to] to @ are all neighbours. § Люди, приглашённые на это мероприятие, — все соседи: @. § event
+[98]
+I was [confused|confusing|confuse] by @; I did not understand it. § Этот документ меня озадачил; я его не понял: @. § doc
+@ was [exciting|excited|excite]; everybody enjoyed it. § Это мероприятие было захватывающим; всем понравилось: @. § event
+We were [exhausted|exhausting|exhaust] after carrying @. § Мы были измотаны после того, как несли @. § item
+Working @ is [tiring|tired|tire]; it takes a lot of energy. § Работать здесь утомительно; это отнимает много сил: @. § loc
+[99]
+We put a [small wooden|wooden small|small woodly] table @. § Мы поставили небольшой деревянный стол @. § loc
+@ looks [useful|usefully|usefulness]. § Этот документ выглядит полезным: @. § doc
+We bought a [beautiful old|old beautifully|beautifully old] box for @. § Мы купили красивую старую коробку для этой вещи: @. § item
+The plan for @ sounds [interesting|interestingly|interest]. § План этого мероприятия звучит интересно: @. § event
+[100]
+Please check @ [carefully|careful|carefulness]. § Пожалуйста, внимательно проверь @. § doc
+She gave us a [clear|clearly|clearness] explanation of @. § Она понятно объяснила нам, что это за мероприятие: @. § event
+He carried @ [slowly|slow|slowness]. § Он медленно нёс @. § item
+We had a [quiet|quietly|quietness] meeting @. § У нас была спокойная встреча @. § loc
+[101]
+She organised @ very [well|good|goodly]. § Она очень хорошо организовала @. § event
+We worked [hard|hardly to|hardly hard] to finish @. § Мы усердно работали, чтобы закончить @. § task
+I can [hardly|hard|hardly to] read @; the print is tiny. § Я едва могу прочесть @; шрифт очень мелкий. § doc
+She walks [fast|fastly|fastness] when carrying @. § Она быстро идёт, когда несёт @. § item
+[102]
+@ was [such a|so a|such] successful event. § Это было такое успешное мероприятие: @. § event
+We were [so|such|so a] tired after carrying @. § Мы так устали после того, как несли @. § item
+There was [so much|so many|such much] information on @. § В этом документе было так много информации: @. § doc
+We had [such|so|such a] good weather while working @. § Пока мы работали здесь, погода была такой хорошей: @. § loc
+[103]
+@ is not clear [enough|too|enoughly] to read. § Этот документ недостаточно чёткий, чтобы его прочесть: @. § doc
+@ is [too|enough|too much a] heavy for me to carry. § Эта вещь слишком тяжёлая, чтобы я её нёс: @. § item
+We do not have [enough money|money enough|enough moneys] to organise @. § У нас недостаточно денег, чтобы организовать @. § event
+We are experienced [enough|too|enoughly] to work @. § У нас достаточно опыта, чтобы работать @. § loc
+[104]
+@ was [quite a|a quite|quite] successful event. § Это было довольно успешное мероприятие: @. § event
+I am [quite|quite a|quitely] sure I checked @. § Я совершенно уверен, что проверил @. § doc
+It is [rather|rather a|ratherly] cold @ today. § Сегодня здесь довольно холодно: @. § loc
+@ is [fairly|fair|fairliness] easy to carry. § Эту вещь довольно легко нести: @. § item
+[105]
+@ is [heavier|heavy|heavierer] than my bag. § Эта вещь тяжелее моей сумки: @. § item
+@ is [more popular|popularer|more popularer] than last year's event. § Это мероприятие популярнее прошлогоднего: @. § event
+@ is [easier|easy|easierer] to read than the old version. § Этот документ легче читать, чем старую версию: @. § doc
+It is [quieter|more quietest|quieterrer] @ than at the station. § Здесь тише, чем на станции: @. § loc
+[106]
+@ is [much|very|muchly] clearer than the old version. § Этот документ намного понятнее старой версии: @. § doc
+@ is getting [more and more|more and most|morer and more] popular. § Это мероприятие становится всё популярнее: @. § event
+The longer we work @, [the more|more the|the most than] confident we become. § Чем дольше мы работаем здесь, тем увереннее становимся: @. § loc
+@ is [a bit|a very|a bitly] heavier than my bag. § Эта вещь немного тяжелее моей сумки: @. § item
+[107]
+@ is as heavy [as|than|as than] my bag. § Эта вещь такая же тяжёлая, как моя сумка: @. § item
+@ is not as clear [as|than|as than] the old version. § Этот документ не такой понятный, как старая версия: @. § doc
+We used the same plan [as|than|as than] last year for @. § Для этого мероприятия мы использовали тот же план, что и в прошлом году: @. § event
+It is colder @ [than|as|than as] it is at home. § Здесь холоднее, чем дома: @. § loc
+[108]
+@ is [the heaviest|the heavier|the heavierest] item here. § Это самая тяжёлая вещь здесь: @. § item
+@ was [the most enjoyable|the enjoyablest|the more enjoyablest] event of the year. § Это было самое приятное мероприятие года: @. § event
+@ is [the clearest/the most clear|the more clear|the clearerest] version I have seen. § Это самая понятная версия документа, которую я видел: @. § doc
+It is [the quietest|the most quietest|the quieterest] room in the building, @. § Это самая тихая комната в здании; мы здесь: @. § loc
+[109]
+[I like @ very much|I like very much @|I @ like much very]. § Мне очень нравится @. § event
+[We checked @ yesterday|We checked yesterday @|We @ checked yesterday]. § Вчера мы проверили @. § doc
+[She carried @ upstairs|She carried upstairs @|She @ carried upstairs]. § Она отнесла @ наверх. § item
+[We worked @ yesterday|We worked yesterday @|We @ worked yesterday]. § Вчера мы работали @. § loc
+[110]
+[I usually check|I check usually|Usually check I] @ before lunch. § Обычно я проверяю @ до обеда. § doc
+[She has already carried|She already has carrying|She has carried already has] @ upstairs. § Она уже отнесла @ наверх. § item
+[We are often|We often are be|Often are we be] busy @. § Мы часто заняты @. § loc
+[They probably will organise/They will probably organise|They will organise probably will|They probably organise will] @ again. § Вероятно, они снова организуют @. § event
+[111]
+I am [still|yet|stilly] checking @; I have not finished. § Я всё ещё проверяю @; я не закончил. § doc
+Have they organised @ [yet|still|yetly]? § Они уже организовали это мероприятие: @? § event
+We do not work @ [any more|no more not|any mores]. § Мы больше не работаем здесь: @. § loc
+She has [already|yetly|alreadys] brought @; it arrived early. § Она уже принесла @; это случилось раньше ожидаемого. § item
+[112]
+[Even|Ever|Evenly] the organiser forgot @; that was surprising. § Даже организатор забыл @; это было удивительно. § item
+We will check @ even [if|whether if|if to] it takes all night. § Мы проверим @, даже если это займёт всю ночь. § doc
+@ was even [better|good|betterer] than we expected. § Это мероприятие было даже лучше, чем мы ожидали: @. § event
+They did not [even|everly|evenly] stop for lunch @. § Они даже не остановились на обед здесь: @. § loc
+[113]
+[Although|Despite|Despite of] the work on @ was difficult, we finished it. § Хотя это было трудно, мы закончили: @. § task
+[Despite|Although|Despite of] the rain, we worked @. § Несмотря на дождь, мы работали @. § loc
+We checked @ in spite of [being|be|been] tired. § Мы проверили @, несмотря на усталость. § doc
+@ was heavy. I carried it, [though|although of|though of]. § Эта вещь была тяжёлой. Однако я её понёс: @. § item
+[114]
+I copied @ [in case|in case of that|in cases] we lost the original. § Я скопировал @ на случай, если мы потеряем оригинал. § doc
+Bring a cover for @ in case it [rains|will raining|rain to]. § Возьми чехол для этой вещи на случай дождя: @. § item
+Keep a phone @ [in case|in case of that|in cases] you need help. § Держи здесь телефон на случай, если понадобится помощь: @. § loc
+We prepared extra chairs for @ [in case|in case of that|in cases] more people came. § Мы подготовили дополнительные стулья для этого мероприятия на случай, если придёт больше людей: @. § event
+[115]
+We will organise @ [unless|unless if|unless to] the organiser is away. § Мы организуем @, если только организатор не будет отсутствовать. § event
+You can borrow @ as long as you [return|will returning|return to] it tomorrow. § Ты можешь взять @ при условии, что вернёшь завтра. § item
+We can work @ [provided that|provided if that|provided to] the owner agrees. § Мы можем работать здесь при условии, что владелец согласится: @. § loc
+Unless you [check|will checking|check to] @, you may miss the mistake. § Если ты не проверишь @, ты можешь пропустить ошибку. § doc
+[116]
+[As|Like|As to] I was checking @, the phone rang. § Пока я проверял @, зазвонил телефон. § doc
+[As|Like|As to] @ was heavy, we carried it together. § Так как эта вещь была тяжёлой, мы несли её вместе: @. § item
+I saw a friend [as|like|as to] I arrived @. § Я увидел друга, когда прибыл @. § destination
+[As|Like|As to] we had no money, we cancelled @. § Так как у нас не было денег, мы отменили @. § event
+[117]
+She works [as|like as|as to] a volunteer @. § Она работает волонтёром @. § loc
+Do [as|like as|as to] I say: check @ first. § Делай, как я говорю: сначала проверь @. § doc
+@ looks [like|as to|like as] something from a museum. § Эта вещь похожа на музейный экспонат: @. § item
+[As|Like as|As to] expected, @ was popular. § Как и ожидалось, это мероприятие было популярно: @. § event
+[118]
+It looks [as if/as though|like as if|as if to] @ is closed today. § Похоже, это место сегодня закрыто: @. § site
+She talks [as if/as though|like as if|as if to] she knew everything about @. § Она говорит так, словно знает всё об этом: @. § event
+@ looks [like|as if to|like as] a new version. § Это похоже на новую версию документа: @. § doc
+It sounds [as if/as though|like as if|as if to] somebody is working @. § По звукам похоже, что кто-то работает здесь: @. § loc
+[119]
+We checked @ [during|while|durings] the meeting. § Мы проверили @ во время встречи. § doc
+We worked @ [for|during of|fors] three hours. § Мы работали здесь три часа: @. § loc
+[While|During|Whiles] I was carrying @, the phone rang. § Пока я нёс @, зазвонил телефон. § item
+Nobody left [during|while|durings] @. § Во время этого мероприятия никто не уходил: @. § event
+[120]
+Please check @ [by|until of|bys] Friday at the latest. § Пожалуйста, проверь @ не позднее пятницы. § doc
+We will stay @ [until|by of|untils] five and then leave. § Мы останемся здесь до пяти, а потом уйдём: @. § loc
+By the time we arrived, @ [had started|has start|had start]. § К тому времени как мы пришли, это мероприятие уже началось: @. § event
+Keep @ [until|by of|untils] I ask for it back. § Храни @, пока я не попрошу вернуть. § item
+[121]
+We will check @ [on|at|ons] Tuesday. § Мы проверим @ во вторник. § doc
+@ starts [at|on|ats] half past six. § Это мероприятие начинается в половине седьмого: @. § event
+We work @ [in|on|ins] the mornings. § Мы работаем здесь по утрам: @. § loc
+We will deliver @ [in|on|ins] July. § Мы доставим @ в июле. § item
+[122]
+We finished checking @ [in time|on time at|in times] to catch the last bus. § Мы успели проверить @, чтобы сесть на последний автобус. § doc
+@ started exactly [on time|in time at|on times], as scheduled. § Это мероприятие началось точно по расписанию: @. § event
+[In the end|At the end of|In the ends], we decided to keep @. § В итоге мы решили оставить @. § item
+We took a photo @ [at the end|in the end of|at the ends] of the visit. § Мы сфотографировались здесь в конце визита: @. § loc
+[123]
+I put @ [in|at|ins] a locked drawer. § Я положил @ в закрытый ящик. § doc
+We hung a picture [on|in|ons] the wall @. § Мы повесили здесь картину на стену: @. § loc
+Meet me [at|on|ats] the entrance to @. § Встреть меня у входа в это место: @. § site
+@ is [in|at|ins] the box, completely inside it. § Эта вещь лежит внутри коробки: @. § item
+[124]
+You can see @ [in|on|ins] this photograph. § На этой фотографии видно это место: @. § site
+The notes about @ are [on|in|ons] page six. § Заметки про это мероприятие находятся на шестой странице: @. § event
+The title is [at|on|ats] the top of @. § Заголовок находится в верхней части этого документа: @. § doc
+@ is [on|in|ons] the left of the room. § Эта вещь находится в левой части комнаты: @. § item
+[125]
+I left @ [at|on|ats] home. § Я оставил @ дома. § item
+We discussed @ [on|at|ons] the bus. § Мы обсуждали @ в автобусе. § event
+I checked @ [in|on|ins] a taxi. § Я проверил @ в такси. § doc
+The injured volunteer is [in|on|ins] hospital after working @. § После работы здесь пострадавший волонтёр лежит в больнице: @. § loc
+[126]
+We are going [to|at|tos] @ tomorrow. § Завтра мы идём в это место: @. § site
+I carried @ [into|at|intos] the room, from outside to inside. § Я внёс @ в комнату снаружи. § item
+We arrived [at|to|ats] @ at nine. § Мы прибыли в это место в девять: @. § site
+I took @ [home|to home|homes to]. § Я отнёс @ домой. § doc
+[127]
+@ was damaged [on|in|ons] purpose, not accidentally. § Эту вещь повредили намеренно, а не случайно: @. § item
+Please write the corrections on @ [in|on|ins] pencil. § Пожалуйста, внеси исправления в этот документ карандашом: @. § doc
+We heard about @ [on|in|ons] the radio. § Мы услышали про это мероприятие по радио: @. § event
+We travelled @ [on foot|by foot|on feet by]. § Мы добрались туда пешком: @. § travel
+[128]
+I sent @ [by|with|bys] email. § Я отправил @ по электронной почте. § doc
+@ was organised [by|with|bys] volunteers. § Это мероприятие организовали волонтёры: @. § event
+I picked up @ [by mistake|with mistake|by mistakes a]. § Я взял @ по ошибке. § item
+We travelled @ [by bus|with bus|by a bus the]. § Мы добрались туда на автобусе: @. § travel
+[129]
+What is the reason [for|of|fors] the change to @? § В чём причина изменения этого документа: @? § doc
+We need a solution [to|of|tos] the problem with @. § Нам нужно решение проблемы с этой вещью: @. § item
+I received an invitation [to|for of|tos] @. § Я получил приглашение на это мероприятие: @. § event
+There is a growing demand [for|of|fors] space @. § Здесь растёт спрос на свободное место: @. § loc
+[130]
+It was kind [of|for|ofs] you to check @. § С твоей стороны было любезно проверить @. § doc
+We are worried [about|for of|abouts] @. § Мы переживаем из-за этого мероприятия: @. § event
+I am tired [of|from of|ofs] carrying @. § Я устал от того, что приходится носить @. § item
+She was angry [with|to|withs] me for leaving @. § Она злилась на меня за то, что я ушёл оттуда: @. § site
+[131]
+We are responsible [for|of|fors] checking @. § Мы отвечаем за проверку этого документа: @. § doc
+I am proud [of|from|ofs] our work on @. § Я горжусь нашей работой над этим мероприятием: @. § event
+She is afraid [of|from|ofs] damaging @. § Она боится повредить @. § item
+Are you interested [in|on|ins] working @? § Тебе интересно работать здесь: @? § loc
+[132]
+Please listen [to|at|tos] the explanation of @. § Пожалуйста, послушай объяснение этого документа: @. § doc
+She smiled [at|to|ats] me when I brought @. § Она улыбнулась мне, когда я принёс @. § item
+We invited them [to|at|tos] @. § Мы пригласили их на это мероприятие: @. § event
+I explained the rules [to|at|tos] the volunteers @. § Я объяснил правила волонтёрам здесь: @. § loc
+[133]
+We talked [about|for|abouts] @. § Мы говорили про @. § event
+I asked the organiser [for|about of|fors] a copy of @. § Я попросил у организатора копию этого документа: @. § doc
+Please look [after|for of|afters] @ while I am away; keep it safe. § Пожалуйста, присмотри за этой вещью, пока меня нет; береги её: @. § item
+I am looking [for|after of|fors] @, but I cannot find it. § Я ищу это место, но не могу найти: @. § site
+[134]
+Have you heard [about|from of|abouts] the cancellation of @? § Ты слышал об отмене этого мероприятия: @? § event
+@ reminds me [of|from|ofs] my childhood. § Эта вещь напоминает мне о детстве: @. § item
+Please remind me [about|from of|abouts] the meeting to check @. § Пожалуйста, напомни мне о встрече для проверки этого документа: @. § doc
+I have never heard [of|from of|ofs] @; I did not know it existed. § Я никогда не слышал об этом месте; я не знал, что оно существует: @. § site
+[135]
+We rely [on|of|ons] @ to organise our work. § Мы полагаемся на этот документ при организации работы: @. § doc
+She thanked me [for|of|fors] carrying @. § Она поблагодарила меня за то, что я нёс @. § item
+The cover protects the equipment [from|of|froms] rain @. § Чехол защищает оборудование от дождя здесь: @. § loc
+Please concentrate [on|of|ons] planning @. § Пожалуйста, сосредоточься на планировании этого мероприятия: @. § event
+[136]
+We succeeded [in|on|ins] organising @. § Нам удалось организовать @. § event
+I filled the box [with|of|withs] packing material to protect @. § Я заполнил коробку упаковочным материалом, чтобы защитить @. § item
+Please translate @ [into|on|intos] English. § Пожалуйста, переведи @ на английский. § doc
+We bumped [into|on|intos] a friend @. § Мы неожиданно встретили друга здесь: @. § loc
+[137]
+Please pick [it up|up it|it up it]: @ is on the floor. § Пожалуйста, подними это: эта вещь лежит на полу: @. § item
+I wrote [it down|down it|it down it]: the date of @. § Я записал это: дату этого мероприятия: @. § event
+Please check [it over|over it|it over it]: @ may contain mistakes. § Пожалуйста, проверь это: в документе могут быть ошибки: @. § doc
+They turned [it off|off it|it off it]: the radio @. § Они выключили это: радио здесь: @. § loc
+[138]
+Please come [in|up|ins]; we are meeting @. § Пожалуйста, входи; мы встречаемся здесь: @. § loc
+Fill [in|up|ins] the details on @. § Заполни подробности в этом документе: @. § doc
+We will eat [out|up|outs] after @ instead of cooking at home. § После этого мероприятия мы поедим вне дома вместо того, чтобы готовить дома: @. § event
+Please take @ [out|up|outs] of the box. § Пожалуйста, достань @ из коробки. § item
+[139]
+We must sort [out|off|outs] the problem with @. § Нам нужно разобраться с проблемой этого документа: @. § doc
+We ran [out|off|outs] of time while planning @. § Пока мы планировали @, у нас закончилось время. § event
+Let's try [out|off|outs] @ to see whether it works. § Давай испытаем @, чтобы понять, работает ли это. § item
+I found [out|off|outs] that @ was closed. § Я узнал, что это место закрыто: @. § site
+[140]
+Take [off|out|offs] your coat before moving @. § Сними пальто перед тем, как перемещать @. § item
+We had to call [off|out|offs] @ because nobody could come. § Нам пришлось отменить @, потому что никто не мог прийти. § event
+Please switch [off|out|offs] the lights @ before leaving. § Перед уходом выключи здесь свет: @. § loc
+We put [off|out|offs] checking @ until tomorrow. § Мы отложили проверку этого документа до завтра: @. § doc
+[141]
+Carry [on|off|ons] checking @; do not stop. § Продолжай проверять @; не останавливайся. § doc
+We set [off|on|offs] early to reach @ before noon. § Мы отправились рано, чтобы добраться туда до полудня: @. § site
+We get [on|off|ons] well with the team organising @. § Мы хорошо ладим с командой, которая организует @. § event
+Hold [on|off|ons] a moment while I put @ down. § Подожди немного, пока я положу @. § item
+[142]
+Write [down|out|downs] the details from @ so you can remember them. § Запиши подробности из этого документа, чтобы их запомнить: @. § doc
+Put @ [down|out|downs] on the table. § Положи @ на стол. § item
+We need to cut [down|out|downs] on spending for @. § Нам нужно сократить расходы на это мероприятие: @. § event
+The equipment broke [down|out|downs] while we were working @. § Оборудование сломалось, пока мы работали здесь: @. § loc
+[143]
+We set [up|out|ups] a committee to organise @. § Мы создали комитет для организации этого мероприятия: @. § event
+An unexpected problem came [up|out|ups] while we checked @. § Когда мы проверяли @, возникла неожиданная проблема. § doc
+Please do not give [up|out|ups] trying to repair @. § Пожалуйста, не бросай попытки отремонтировать @. § item
+I grew [up|out|ups] near @. § Я вырос рядом с этим местом: @. § site
+[144]
+Please clean [up|out|ups] @ before the visitors arrive. § Пожалуйста, убери это место до прихода посетителей: @. § site
+I mixed [up|out|ups] the dates on @ by mistake. § Я по ошибке перепутал даты в этом документе: @. § doc
+We used [up|out|ups] all the paper while planning @. § Пока мы планировали @, мы израсходовали всю бумагу. § event
+We ended [up|out|ups] carrying @ ourselves. § В итоге нам пришлось самим нести @. § item
+[145]
+Please put @ [away|off|aways] in the cupboard. § Пожалуйста, убери @ в шкаф. § item
+I will call [back|off|backs] later to discuss @. § Я перезвоню позже, чтобы обсудить @. § event
+Please give @ [back|off|backs] when you have finished reading it. § Пожалуйста, верни @, когда закончишь читать. § doc
+We got [back|off|backs] from @ late last night. § Мы вернулись оттуда поздно вчера вечером: @. § site
