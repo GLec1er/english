@@ -25,7 +25,7 @@
     const items = raw.items.filter(it => it && modes.includes(it.t) && validRef(it.ref) && it.ref.u===unit && (it.ref.k==='gap' ? ['mc','fill','order','lgap','dict'].includes(it.t) : it.t===it.ref.k)).map(it=>({t:it.t,ref:{u:unit,k:it.ref.k,i:it.ref.i,...(it.ref.b?{b:it.ref.b,v:it.ref.v}:{})}}));
     if(items.length!==13 || new Set(items.map(key)).size!==13) return null;
     const answers={};
-    items.forEach(it=>{const a=raw.answers && raw.answers[key(it)];if(a&&typeof a.ok==='boolean')answers[key(it)]={ok:a.ok,user:typeof a.user==='string'?a.user.slice(0,5000):'',...(a.ok&&a.accepted===true?{accepted:true}:{})};});
+    items.forEach(it=>{const a=raw.answers && raw.answers[key(it)];if(a&&typeof a.ok==='boolean')answers[key(it)]={ok:a.ok,user:typeof a.user==='string'?a.user.slice(0,5000):'',...(a.ok&&a.accepted===true?{accepted:true}:{}),...(a.ok&&a.correction==='spelling'?{correction:'spelling'}:{})};});
     return {id:raw.id,day:raw.day,items,answers};
   }
   function normalize(raw) {
@@ -62,10 +62,10 @@
     return {...state,units:{...state.units,[unit]:{history:row.history.concat({...a,day:Study.date(day)?day:a.day}),draft:null}}};
   }
   const canClose=(state,unit,complete)=>complete===true && status(state,unit).passed;
-  function accept(state,unit,id,itemKey,user){
+  function accept(state,unit,id,itemKey,user,reason){
     const row=state.units&&state.units[unit],attempt=row&&row.history.find(a=>a.id===id),answer=attempt&&attempt.answers[itemKey];
     if(!answer||answer.ok||answer.user!==user)return state;
-    const amended={...attempt,answers:{...attempt.answers,[itemKey]:{...answer,ok:true,accepted:true}}};
+    const amended={...attempt,answers:{...attempt.answers,[itemKey]:{...answer,ok:true,accepted:true,...(reason==='spelling'?{correction:'spelling'}:{})}}};
     return {...state,units:{...state.units,[unit]:{...row,history:row.history.map(a=>a.id===id?amended:a)}}};
   }
   const api={key,select,normalize,start,answer,finish,status,canClose,accept};

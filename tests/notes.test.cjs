@@ -86,3 +86,11 @@ check('unit 36 imaginary travel accepts the valid a lot extension without adding
  assert.deepEqual(N.accepted({...item,t:'dict'}),[]);
  assert.deepEqual(N.accepted({...item,data:{a:['If I have a lot of money, I will travel.']}}),[]);
 });
+check('standard organize spellings are equivalent without treating different forms or words as equal',()=>{
+ for(const [uk,us] of [['organise','organize'],['organises','organizes'],['organised','organized'],['organising','organizing']])assert.equal(N.spellingKey(uk),N.spellingKey(us));
+ assert.ok(N.spellingOnlyMatch('Would you like to organize the charity sale with us?',['Would you like to organise the charity sale with us?']));
+ assert.ok(N.spellingOnlyMatch('Would you like to organize the craft exhibition with us',['Would you like to organise the craft exhibition with us?']));
+ assert.equal(N.spellingOnlyMatch('Would you like to organized the charity sale with us?',['Would you like to organise the charity sale with us?']),false);
+ assert.equal(N.spellingOnlyMatch('Would you like to organize the evening film with us?',['Would you like to organise the film evening with us?']),false);
+ assert.equal(N.spellingOnlyMatch('May I walk in the greenhouse today?',['May I work in the greenhouse today?']),false);
+});

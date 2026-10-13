@@ -2109,3 +2109,4 @@ audio {
 @media(max-width:740px){.top{padding-top:7px;padding-bottom:7px}.top nav{min-width:0;flex-wrap:wrap;justify-content:flex-start;gap:2px 14px}.top nav a{flex-shrink:0;min-height:34px}.top nav a.active::after{bottom:0}}
 .local-feedback,.api-output,.story{overflow-wrap:anywhere}
 .dispute-output{line-height:1.65;overflow-wrap:anywhere}.ai-adjudication{margin-top:1rem;padding:1rem;border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--bg)}.ai-adjudication h3{margin-top:0}.ai-adjudication p:last-child{margin-bottom:0}.ai-adjudication[data-verdict=acceptable]{border-left-color:var(--good)}.ai-adjudication .accept-dispute{margin-top:.5rem}.dispute-tutor .actions{gap:.65rem}.wronglist .dispute-tutor{margin-bottom:1.5rem}
+.after-day-plan{margin-top:18px}.after-day-plan h3{font-family:var(--serif);font-size:22px}.after-day-review{border-top:1px solid var(--line);padding-top:12px;margin-top:16px}.after-day-review .actions{flex-wrap:wrap}

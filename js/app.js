@@ -4,7 +4,7 @@
 
   const D = window.EGIU;
   const Notes = window.EGIUNotes;
-  const Exam = window.EGIUExam, Review = window.EGIUReview, Learning = window.EGIULearning, Disputes = window.EGIUDisputes;
+  const Exam = window.EGIUExam, Review = window.EGIUReview, Learning = window.EGIULearning, Disputes = window.EGIUDisputes, Corrections=window.EGIUCorrections;
   const app = document.getElementById('app');
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -156,6 +156,8 @@
     return { id, xp: after.xp - before.xp, closed: !wasDone && dayState(todayKey()).done, week: after.weeks.length > before.weeks.length, rank: rank.current.en !== beforeRank ? rank.current : null };
   }
   let mistakes = Review.normalize(Store.get('mistakes', []), todayKey());
+  const repaired=Corrections.repairSpelling({exams,mistakes,activity,learning},todayKey());
+  if(repaired.changes.length){exams=repaired.exams;mistakes=repaired.mistakes;learning=repaired.learning;activity.splice(0,activity.length,...repaired.activity);saveExams();saveLearning();Store.set('activity',activity);}
   Store.set('mistakes', mistakes);
   const mkey = Review.key;
   const activeMistakes = () => mistakes.filter((r) => r.stage < 3);
@@ -229,7 +231,7 @@
   function same(user, answers) {
     const u = variants(norm(user));
     return answers.some((a) => {
-      for (const v of variants(norm(a))) if (u.has(v)) return true;
+      for (const v of variants(norm(a))) for(const supplied of u)if(Notes.spellingKey(supplied)===Notes.spellingKey(v))return true;
       return false;
     });
   }
@@ -889,7 +891,13 @@
         ${goalList(goal, state)}
         <p class="plan-help">Все упражнения → экзамен от 80% → закрытый день. Один юнит в будний день.</p>
         ${allComplete && !exam.passed && !state.done ? `<a class="btn primary" href="#/u/${u.n}/exam">${exam.draft ? 'Продолжить экзамен' : 'Сдать экзамен'} ${icon('arrow')}</a>` : canClaim ? '<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>' : `<a class="btn primary today-start" href="#/u/${u.n}${next && !state.done ? '/' + next : ''}">${state.done ? 'Продолжить практику' : next ? 'Следующее занятие' : 'Открыть юнит'} ${icon('arrow')}</a>`}`}
-    </div>`;
+    </div>`+(state.done?afterDayPlan(day):'');
+  }
+  function afterDayPlan(day){
+    const plan=Course.planAfter(course,day),topics=Learning.dueTopics(learning,day),errors=Review.due(mistakes,day);
+    if(!plan)return '';
+    const u=plan.kind==='unit'?plannedUnit(plan.day):null,closedUnit=course.closed[day];
+    return `<section class="card after-day-plan" aria-label="После закрытого дня"><span class="eyebrow">Следующая страница</span><h3>Завтра · ${dateLabel(plan.day,{weekday:'long',day:'numeric',month:'long'})}</h3><p>${u?`Unit ${u.n} · <span lang="en">${esc(u.title)}</span>`:plan.kind==='review'?'Повторение юнитов этой недели. Новую тему закрывать не нужно.':'Все юниты закрыты. Можно возвращаться к темам и собственной речи.'}</p><div class="actions"><a class="btn small" href="#/calendar/${plan.day}">Посмотреть план</a>${closedUnit?`<a class="btn small" href="#/u/${closedUnit}/context">Unit ${closedUnit} · применить в своей речи</a>`:''}</div>${topics.length||errors.length?`<div class="after-day-review"><p>Можно закрепить сегодня — без нового юнита:</p><div class="actions">${topics.length?`<a class="btn small" href="#/retention">Темы на повторение · ${topics.length}</a>`:''}${errors.length?`<a class="btn small" href="#/mistakes">Ошибки на сегодня · ${errors.length}</a>`:''}</div></div>`:'<p class="muted small">Обязательных повторений на сегодня нет.</p>'}</section>`;
   }
   function wireTodayPlan() {
     const select = $('#today-unit');
@@ -1208,7 +1216,7 @@
       <div class="actions">${claimable?'<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>':''}<button class="btn ${passed?'':'primary'} start-exam" type="button">${passed?'Пересдать для себя':'Новая попытка'}</button><a class="btn ghost" href="#/mistakes">Закрепить ошибки</a></div>
       ${course.closed[todayKey()]===u.n?`<p class="exam-day-complete">${icon('check')} День закрыт · ранг <span lang="en">${Course.rank(course,todayKey()).current.en}</span><a href="#/calendar">Дневник →</a></p>`:''}
     </section><h2>Разбор всех ответов</h2><p class="muted small">Ошибки сохранены в журнале. Первое повторение — через день, затем через 3 и 7 дней.</p>
-      <div class="exam-analysis">${results.map((r,i)=>`<details class="exam-answer ${r.ok?'is-correct':'is-wrong'}"${!r.ok?' open':''}><summary><span>${i+1}. ${TYPES[r.item.t].name}</span><b>${r.accepted?'Зачтено после разбора':r.ok?'Верно':'Разобрать'}</b></summary><p class="exam-user">Твой ответ: <span lang="en">${esc(r.user || '∅')}</span></p><p class="answer" lang="en">${esc(correctText(r.item))}</p>${Notes.render(answerNote(r.item,r))}${!r.ok?`<div data-exam-appeal="${i}"></div>`:''}</details>`).join('')}</div>`;
+      <div class="exam-analysis">${results.map((r,i)=>`<details class="exam-answer ${r.ok?'is-correct':'is-wrong'}"${!r.ok?' open':''}><summary><span>${i+1}. ${TYPES[r.item.t].name}</span><b>${r.correction==='spelling'?'Вариант написания принят':r.accepted?'Зачтено после разбора':r.ok?'Верно':'Разобрать'}</b></summary><p class="exam-user">Твой ответ: <span lang="en">${esc(r.user || '∅')}</span></p><p class="answer" lang="en">${esc(correctText(r.item))}</p>${Notes.render(answerNote(r.item,r))}${!r.ok?`<div data-exam-appeal="${i}"></div>`:''}</details>`).join('')}</div>`;
   }
   function examRun(u) {
     const draft=Exam.status(exams,u.n).draft;

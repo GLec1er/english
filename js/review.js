@@ -26,7 +26,8 @@
   function undo(rows,ref,event){
     return rows.flatMap(r=>key(r)!==key(ref)||r.lastEvent!==event?[r]:r.undo?[r.undo]:r.createdEvent===event?[]:[r]);
   }
+  function dismiss(rows,ref,event,user){const current=rows.find(r=>key(r)===key(ref));if(!current||current.lastEvent!==event||current.lastAnswer!==user)return rows;return current.lapses===1?rows.filter(r=>key(r)!==key(ref)):undo(rows,ref,event);}
   const due=(rows,day)=>rows.filter(r=>r.stage<3&&r.due<=day).sort((a,b)=>a.due.localeCompare(b.due)||b.lapses-a.lapses||a.u-b.u);
   const summary=(rows,day)=>({active:rows.filter(r=>r.stage<3).length,due:due(rows,day).length,mastered:rows.filter(r=>r.stage===3).length,total:rows.length});
-  const api={key,normalize,record,undo,due,summary};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.EGIUReview=api;
+  const api={key,normalize,record,undo,dismiss,due,summary};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.EGIUReview=api;
 })(typeof window==='undefined'?globalThis:window);

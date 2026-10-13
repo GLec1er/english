@@ -46,3 +46,10 @@ check('invalid and duplicate imported claims are removed; future claims do not g
   assert.deepEqual(c.closed,{'2026-10-12':36,'2026-10-19':37});
   assert.equal(C.rank(c,'2026-10-12').done,1);
 });
+test('the next-day plan follows five study days and two review days without changing course claims',()=>{
+ const course=C.normalize({closed:{'2026-10-12':36,'2026-10-13':37}});
+ assert.deepEqual(C.planAfter(course,'2026-10-13'),{day:'2026-10-14',kind:'unit',unit:38});
+ assert.deepEqual(C.planAfter(course,'2026-10-16'),{day:'2026-10-17',kind:'review',unit:null});
+ assert.deepEqual(C.planAfter(course,'2026-10-17'),{day:'2026-10-18',kind:'review',unit:null});
+ assert.deepEqual(C.planAfter(course,'2026-10-18'),{day:'2026-10-19',kind:'unit',unit:38});assert.equal(Object.keys(course.closed).length,2);
+});

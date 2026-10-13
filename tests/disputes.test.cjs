@@ -38,3 +38,8 @@ test('journal exam acceptance updates only the rejected attempt and its existing
  const state={mistakes,steps:{},exams,activity:[{id:'exam-activity',session:'exam-a',kind:'exam',answers:13,correct:10}]},accepted=D.resolve(state,mistakes[0]);
  assert.equal(E.status(accepted.exams,36).passed,true);assert.equal(E.status(accepted.exams,36).attempts,1);assert.equal(accepted.mistakes.length,0);assert.equal(accepted.activity.length,1);assert.equal(accepted.activity[0].correct,11);assert.equal(accepted.activity[0].answers,13);
 });
+test('a single false rejection can be dismissed after a later correct review without undoing that success',()=>{
+ let mistakes=R.record([],ref,{ok:false,user:'could',mode:'fill'},'2026-10-13','bad:0');mistakes=R.record(mistakes,ref,{ok:true,user:'would',mode:'fill'},'2026-10-13','good:0');
+ const state={mistakes,steps:{'36:fill':S.record(null,'gap:0',{ok:false,score:0,user:'could',reviewEvent:'bad:0',eventId:'original'},123)},exams:{units:{}},activity:[{id:'original',answers:1,correct:0},{id:'good',answers:1,correct:1}]};
+ const out=D.resolve(state,mistakes[0]);assert.equal(out.mistakes.length,0);assert.equal(out.steps['36:fill'].answers['gap:0'].ok,true);assert.deepEqual(out.activity,[{id:'original',answers:1,correct:1},{id:'good',answers:1,correct:1}]);
+});

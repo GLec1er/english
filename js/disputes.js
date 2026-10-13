@@ -25,13 +25,13 @@
  function resolve(state,row){
   const current=state.mistakes.find(r=>R.key(r)===R.key(row));
   if(!current||current.lastEvent!==row.lastEvent||current.lastAnswer!==row.lastAnswer)return state;
-  const mistakes=R.undo(state.mistakes,row,row.lastEvent);
+  const mistakes=R.dismiss(state.mistakes,row,row.lastEvent,row.lastAnswer),errorEvent=row.lapses===1&&row.createdEvent?row.createdEvent:row.lastEvent;
   if(mistakes.length===state.mistakes.length&&mistakes.every((r,i)=>r===state.mistakes[i]))return state;
   let steps=state.steps,exams=state.exams,activity=state.activity;
   const entryId=row.u+':'+row.lastMode,key=row.k+':'+row.i,entry=steps[entryId];
-  if(!row.b&&entry){const accepted=S.accept(entry,key,row.lastEvent,row.lastAnswer);if(accepted!==entry){steps={...steps,[entryId]:accepted};const eventId=entry.answers[key].eventId;activity=activity.map(e=>e.id===eventId?{...e,correct:Math.min(e.answers,e.correct+1)}:e);}}
+  if(!row.b&&entry){const accepted=S.accept(entry,key,errorEvent,row.lastAnswer);if(accepted!==entry){steps={...steps,[entryId]:accepted};const eventId=entry.answers[key].eventId;activity=activity.map(e=>e.id===eventId?{...e,correct:Math.min(e.answers,e.correct+1)}:e);}}
   for(const a of E.status(exams,row.u).last?[...(exams.units[row.u].history)]:[]){
-   const it=a.items.find(it=>a.id+':'+E.key(it)===row.lastEvent&&R.key(it.ref)===R.key(row));if(!it)continue;
+   const it=a.items.find(it=>a.id+':'+E.key(it)===errorEvent&&R.key(it.ref)===R.key(row));if(!it)continue;
    const accepted=E.accept(exams,row.u,a.id,E.key(it),row.lastAnswer);if(accepted!==exams){exams=accepted;const attempt=exams.units[row.u].history.find(x=>x.id===a.id),correct=Object.values(attempt.answers).filter(x=>x.ok).length;activity=activity.map(e=>e.session===a.id&&e.kind==='exam'?{...e,correct}:e);}
   }
   return {...state,mistakes,steps,exams,activity};

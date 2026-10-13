@@ -17,7 +17,7 @@
    container.insertAdjacentHTML('beforeend',`<div class="optional-tutor"><div class="actions"><button class="btn small api-check" type="button">Разобрать через ProxyAPI · платно</button><a class="small" href="#/settings">Настройки и лимит</a></div><p class="muted small">Отправится этот текст и правило юнита. До 4000 символов; без истории занятий и записи голоса.</p><div class="api-output" aria-live="polite"></div></div>`);
    const box=$('.optional-tutor',container),output=$('.api-output',box),button=$('.api-check',box);
    function show(r){output.innerHTML=render(r,readText());if(applyRevision){output.insertAdjacentHTML('beforeend','<button class="btn small apply-revision" type="button">Вставить в исправленную версию</button>');$('.apply-revision',output).onclick=()=>applyRevision(r.review.revised);}}
-   const previous=getReview(n,kind);if(previous)show(previous);
+   const previous=getReview(n,kind);if(previous&&readText().trim())show(previous);
    button.onclick=async()=>{
     const options=getOptions(),text=readText();const old=getReview(n,kind);if(old&&old.source===text&&old.task===task&&old.model===options.model){show(old);return;}
     let price;try{price=A.estimate(A.payload({...options,text,task,rule}));}catch(e){output.textContent=e.message;return;}
