@@ -73,3 +73,16 @@ check('all existing unit examples and writing models have a matching Russian not
     item.noteRef={lab};for(const say of L.kind==='pair'?row:[undefined])assert.ok(N.forResult(item,{ok:true,say}),'missing lab '+lab+':'+JSON.stringify(row));
   }
 });
+check('unit 36 reported promise accepts an unspecified addressee instead of rejecting you',()=>{
+ const item={t:'tr',ref:{u:36,k:'tr',i:0},data:{a:['Tom promised he would help me.']}};
+ assert.ok(N.answers(item).includes('Tom promised he would help you.'));
+ assert.ok(N.answers(item).includes('Tom promised that he would help you.'));
+ assert.ok(N.answers(item).includes('Tom promised to help you.'));
+ assert.ok(!N.answers(item).includes('Tom promised he will help you.'));
+});
+check('unit 36 imaginary travel accepts the valid a lot extension without adding it to dictation',()=>{
+ const item={t:'tr',ref:{u:36,k:'tr',i:1},data:{a:['If I had a lot of money, I would travel.']}};
+ assert.ok(N.answers(item).includes('If I had a lot of money, I would travel a lot.'));
+ assert.deepEqual(N.accepted({...item,t:'dict'}),[]);
+ assert.deepEqual(N.accepted({...item,data:{a:['If I have a lot of money, I will travel.']}}),[]);
+});

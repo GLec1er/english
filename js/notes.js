@@ -14,13 +14,13 @@
     return row&&canonical(row[0])===canonical(d.full||(d.a&&d.a[0]))?row:null;
   }
   function accepted(item){
-    if(!item||!['mc','fill'].includes(item.t))return [];
+    if(!item||!(['mc','fill'].includes(item.t)||(item.t==='tr'&&item.ref&&item.ref.k==='tr')))return [];
     const row=unitRow(item);
     return row&&Array.isArray(row[3])?row[3].slice():[];
   }
   function answers(item){
     if(item.t==='lgap')return [item.data.correct];
-    return (item.data.answers||[]).concat(accepted(item));
+    return (item.data.answers||item.data.a||[]).concat(accepted(item));
   }
   function orderAnswers(item){
     const d=item.data;
