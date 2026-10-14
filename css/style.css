@@ -715,6 +715,19 @@ kbd {
   color: var(--accent);
 }
 
+.weekly-notice {margin:24px 0;padding:20px 24px;border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--card)}
+.weekly-notice h2 {font-family:var(--serif);font-size:24px;margin:8px 0}
+.weekly-notice p {max-width:760px;font-size:14px;line-height:1.65}
+.weekly-notice.is-blocked {border-color:var(--accent)}
+.weekly-notice-footer {display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.today-plan .weekly-notice {margin:0;padding:0;border:0;background:none}
+.weekly-overview,.weekly-error {margin:20px 0}
+.weekly-error-heading {display:flex;justify-content:space-between;align-items:baseline;gap:16px}
+.weekly-error-heading>span {white-space:nowrap;color:var(--muted);font-size:12px}
+.weekly-run-title {font-size:30px;line-height:1.25}
+.weekly-progress {font-size:12px;color:var(--muted);margin:12px 0 24px}
+@media(max-width:740px){.weekly-notice{padding:16px}.weekly-notice h2{font-size:21px}.weekly-notice-footer{align-items:flex-start;flex-direction:column}.weekly-run-title{font-size:25px}}
+
 .sec summary>.icon {
   width: 16px;
   height: 16px;

@@ -31,26 +31,26 @@
 **Files:** `js/weekly.js`, `tests/weekly.test.cjs`.
 **Interfaces:** `normalize(raw,day)`, `capture(state,ref,result,day,event)`, `read(state,week,key)`, `answer(state,week,key,phase,result,event)`, `cancel(state,ref,event)`, `status(state,day)`, `canStart(state,course,day,unit)`, `seed(state,mistakes,activity,exams,steps,day)`.
 
-- [ ] Add failing tests for dates, capture/reset, persisted partial progress, exact false-error cancellation, import validation, bootstrap and admission.
-- [ ] Implement and run the focused tests, then the suite.
-- [ ] Commit state and tests.
+- [x] Add failing tests for dates, capture/reset, persisted partial progress, exact false-error cancellation, import validation, bootstrap and admission.
+- [x] Implement and run the focused tests, then the suite.
+- [x] Commit state and tests.
 
 ## Task 2: Related content and revision flow
 
 **Files:** generator, `js/weekly-data.js`, `js/weekly.js`, `js/weekly-ui.js`, `js/app.js`, content tests.
 **Interfaces:** `drills(sourceItem)` returns two exercise items with local notes; UI uses `R`, `answerNote`, state setters and explicit AI appeal attachment.
 
-- [ ] Add failing content tests covering all 145 units and separation from existing sources.
-- [ ] Generate two new recipe contexts without changing existing A/B data.
-- [ ] Build saved explanation → original → additional-task flow, retries and completion.
-- [ ] Check original wrong answers, interrupted flows and listening errors.
+- [x] Add failing content tests covering all 145 units and separation from existing sources.
+- [x] Generate two new recipe contexts without changing existing A/B data.
+- [x] Build saved explanation → original → additional-task flow, retries and completion.
+- [x] Check original wrong answers, interrupted flows and listening errors.
 
 ## Task 3: Calendar, enforcement and verification
 
 **Files:** app routes/session entry/claims, stylesheet, index asset URLs, README.
 
-- [ ] Show the warning and linked remaining assignment in contents/calendar/mistakes.
-- [ ] Guard unit routes, mixes, topic sessions and course closure; allow revision and closed units.
-- [ ] Refresh asset hashes and run all tests, syntax checks and generator check.
-- [ ] Browser QA with synthetic weekend/Monday/debt/no-debt fixtures, direct links, reload, completion and mobile widths.
+- [x] Show the warning and linked remaining assignment in contents/calendar/mistakes.
+- [x] Guard unit routes, mixes, topic sessions and course closure; allow revision and closed units.
+- [x] Refresh asset hashes and run all tests, syntax checks and generator check.
+- [x] Browser QA with synthetic weekend/Monday/debt/no-debt fixtures, direct links, reload, completion and mobile widths.
 - [ ] Review the final diff, save screenshots and create a draft PR.

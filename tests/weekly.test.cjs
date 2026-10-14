@@ -38,10 +38,23 @@ test('recovering the same exam rejection in a later week does not create a secon
  assert.equal(W.capture(s,ref,bad,'2026-10-19','bad-1'),s);
  assert.equal(W.status(s,'2026-10-26').blocked,false);
 });
+test('old captured events cannot reopen work after several later errors and a reload',()=>{
+ let s=W.capture(initial(),ref,bad,'2026-10-15','bad-2');
+ s=W.capture(s,ref,bad,'2026-10-16','bad-3');s=complete(s);
+ s=W.normalize(JSON.parse(JSON.stringify(s)),'2026-10-19');
+ assert.equal(W.capture(s,ref,bad,'2026-10-19','bad-1'),s);
+});
 test('only closed units remain accessible during debt, including when a Monday was skipped',()=>{
  const s=initial(),course={closed:{'2026-10-13':37}};
  assert.equal(W.canStart(s,course,'2026-10-19',38),false);assert.equal(W.canStart(s,course,'2026-10-19',37),true);
  assert.equal(W.canStart(s,course,'2026-10-26',38),false);assert.equal(W.canStart(complete(s),course,'2026-10-26',38),true);
+});
+test('finishing old debt admits lessons even when the current week has new mistakes',()=>{
+ let s=W.capture(initial(),{u:36,k:'gap',i:0},bad,'2026-10-19','new-week');
+ assert.equal(W.status(s,'2026-10-19').oldest,'2026-10-12');
+ s=complete(s);assert.equal(W.status(s,'2026-10-19').blocked,false);
+ assert.equal(W.status(s,'2026-10-19').current.pending,1);
+ assert.equal(W.status(s,'2026-10-26').oldest,'2026-10-19');
 });
 test('week rollover across New Year uses calendar weeks and imported completion cannot precede its prerequisites',()=>{
  let s=W.capture(W.normalize({},'2026-12-31'),ref,bad,'2026-12-31','year');
@@ -56,4 +69,9 @@ test('bootstrap includes dated current-week errors, skips undated legacy errors,
  let s=W.seed(W.normalize({},'2026-10-14'),rows,[],exams,{},'2026-10-14');
  assert.deepEqual(Object.keys(s.weeks['2026-10-12']),['37:transfer:A:err:0']);
  const again=W.seed(s,rows,[],exams,{},'2026-10-19');assert.equal(again,s);
+});
+test('an imported error cannot select a renderer incompatible with its source kind',()=>{
+ const s=initial(),r=s.weeks['2026-10-12']['37:gap:1'];
+ const imported=W.normalize({...s,weeks:{'2026-10-12':{'37:gap:1':{...r,mode:'tr'}}}},'2026-10-19');
+ assert.equal(imported.weeks['2026-10-12']['37:gap:1'].mode,'fill');
 });

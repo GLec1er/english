@@ -6,9 +6,10 @@
  const phases=['original','first','second'],key=Review.key;
  const text=(s,max=5000)=>typeof s==='string'?s.slice(0,max):'';
  function reference(r){const n=Review.normalize([r],'2000-01-03')[0];return n?{u:n.u,k:n.k,i:n.i,...(n.b?{b:n.b,v:n.v}:{})}:null;}
+ const sourceMode=(ref,mode)=>ref.k==='gap'?(['mc','fill','order','lgap','dict','speak'].includes(mode)?mode:'fill'):ref.k;
  function cleanRow(raw,week,depth=1){
   if(!raw||!reference(raw.ref)||!Study.date(raw.day)||Study.weekStart(raw.day)!==week||!text(raw.event,200))return null;
-  const row={ref:reference(raw.ref),event:text(raw.event,200),day:raw.day,user:text(raw.user),mode:text(raw.mode,20),read:raw.read===true,answers:{},previous:null};
+  const row={ref:reference(raw.ref),event:text(raw.event,200),day:raw.day,user:text(raw.user),mode:sourceMode(raw.ref,raw.mode),read:raw.read===true,answers:{},previous:null};
   if(row.read)for(const phase of phases){const a=raw.answers&&raw.answers[phase];if(!a||typeof a.ok!=='boolean'||!text(a.event,200))break;row.answers[phase]={ok:a.ok,user:text(a.user),event:text(a.event,200)};if(!a.ok)break;}
   if(depth&&raw.previous){const prev=cleanRow(raw.previous,week,depth-1);if(prev&&key(prev.ref)===key(row.ref))row.previous=prev;}
   return row;
@@ -16,11 +17,12 @@
  function normalize(raw,day){
   raw=raw&&typeof raw==='object'?raw:{};
   const since=Study.date(raw.since)&&Study.weekStart(raw.since)===raw.since?raw.since:Study.weekStart(day);
-  const s={version:1,since,seeded:raw.seeded===true,weeks:{}};
+  const s={version:1,since,seeded:raw.seeded===true,seen:[...new Set((Array.isArray(raw.seen)?raw.seen:[]).filter(e=>typeof e==='string'&&e.length>0&&e.length<=200))],weeks:{}};
   for(const [week,rows]of Object.entries(raw.weeks||{})){
    if(!Study.date(week)||Study.weekStart(week)!==week||week<since||!rows||typeof rows!=='object')continue;
    const out={};for(const [k,r]of Object.entries(rows)){const row=cleanRow(r,week);if(row&&key(row.ref)===k)out[k]=row;}
    s.weeks[week]=out;
+   for(const row of Object.values(out))for(const event of [row.event,row.previous?.event])if(event&&!s.seen.includes(event))s.seen.push(event);
   }
   return s;
  }
@@ -28,10 +30,10 @@
  function replace(s,week,k,row){return {...s,weeks:{...s.weeks,[week]:{...s.weeks[week],[k]:row}}};}
  function capture(s,ref,result,day,event){
   if(!result||result.ok!==false||!reference(ref)||!Study.date(day)||day<s.since||!text(event,200))return s;
-  if(Object.values(s.weeks).some(rows=>Object.values(rows).some(r=>r.event===event||r.previous?.event===event)))return s;
+  if(s.seen.includes(event))return s;
   const week=Study.weekStart(day),k=key(ref),old=s.weeks[week]&&s.weeks[week][k];
   if(old&&(old.event===event||day<old.day))return s;
-  return replace(s,week,k,{ref:reference(ref),event:text(event,200),day,user:text(result.user),mode:text(result.mode,20),read:false,answers:{},previous:old?{...old,previous:null}:null});
+  return replace({...s,seen:s.seen.concat(text(event,200))},week,k,{ref:reference(ref),event:text(event,200),day,user:text(result.user),mode:sourceMode(ref,result.mode),read:false,answers:{},previous:old?{...old,previous:null}:null});
  }
  function read(s,week,k){const r=s.weeks[week]&&s.weeks[week][k];return !r||r.read?s:replace(s,week,k,{...r,read:true});}
  function answer(s,week,k,phase,result,event){
