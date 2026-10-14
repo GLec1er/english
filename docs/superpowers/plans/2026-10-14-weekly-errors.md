@@ -53,4 +53,4 @@
 - [x] Guard unit routes, mixes, topic sessions and course closure; allow revision and closed units.
 - [x] Refresh asset hashes and run all tests, syntax checks and generator check.
 - [x] Browser QA with synthetic weekend/Monday/debt/no-debt fixtures, direct links, reload, completion and mobile widths.
-- [ ] Review the final diff, save screenshots and create a draft PR.
+- [x] Review the final diff, save screenshots and create a draft PR: https://github.com/GLec1er/english/pull/12.
