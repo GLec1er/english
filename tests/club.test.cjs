@@ -98,3 +98,28 @@ check('official closure of an already practiced unit awards one day bonus withou
   assert.equal(C.ledger([],config(), '2026-10-13',course).xp,20);
   assert.equal(C.ledger([],config(), '2026-10-13',course).streak,1);
 });
+check('a completion summary exists only for the actual closed day with no required revision outstanding',()=>{
+ const club=config({'2026-10-12':goal(36)}),course={since:'2026-10-12',closed:{'2026-10-12':36}};
+ assert.equal(C.completion([],club,course,'2026-10-13'),null);
+ assert.equal(C.completion([],club,{...course,closed:{}},'2026-10-12'),null);
+ assert.equal(C.completion([],club,course,'2026-10-12',1),null);
+ assert.equal(C.completion([],club,course,'2026-10-12').unit,36);
+});
+check('completion shows XP earned that day and the saved streak without adding a reward on reload',()=>{
+ const all=['mc','fill','order','err','tr','write','lgap','dict','speak'];
+ const club=config({'2026-10-12':goal(36,all),'2026-10-13':goal(37,all)});
+ const course={since:'2026-10-12',closed:{'2026-10-12':36,'2026-10-13':37}};
+ const rows=all.flatMap(mode=>[event('2026-10-12',mode,36),event('2026-10-13',mode,37)]);
+ const before=JSON.stringify({rows,club,course}),summary=C.completion(rows,club,course,'2026-10-13');
+ assert.equal(summary.xp,110);assert.equal(summary.streak,2);assert.equal(summary.weekSeal,false);
+ assert.deepEqual(C.completion(JSON.parse(JSON.stringify(rows)),club,course,'2026-10-13'),summary);
+ assert.equal(JSON.stringify({rows,club,course}),before);
+});
+check('Sunday completion includes its day reward and the full-week seal exactly once',()=>{
+ const goals={},rows=[],closed={};
+ for(const day of ['2026-10-12','2026-10-13','2026-10-14','2026-10-15','2026-10-16']){const unit=36+Object.keys(closed).length;goals[day]=goal(unit);rows.push(...full(day,unit));closed[day]=unit;}
+ rows.push(review('2026-10-17','2026-10-12',[36,37,38,39,40]),review('2026-10-18','2026-10-12',[36,37,38,39,40]));
+ const summary=C.completion(rows,config(goals),{since:'2026-10-12',closed},'2026-10-18');
+ assert.equal(summary.weekend,true);assert.equal(summary.xp,75);assert.equal(summary.weekSeal,true);assert.equal(summary.streak,7);
+ assert.equal(C.completion(rows,config(goals),{since:'2026-10-12',closed},'2026-10-18',1),null);
+});

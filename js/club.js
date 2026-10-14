@@ -59,7 +59,13 @@
     return { xp, level: Math.floor(xp / 200) + 1, progress: xp % 200, remaining: 200 - xp % 200, streak, closed, weeks,
       awards: { first: closed.length > 0, weekend: weekendPair, week: weeks.length > 0 } };
   }
-  const api = { requiredModes, normalize, dayStatus, ledger };
+  function completion(events,club,course,day,pendingRequired=0) {
+    const state=dayStatus(events,day,club,course);
+    if(!state.done||pendingRequired>0)return null;
+    const current=ledger(events,club,day,course),before=ledger(events,club,Study.shift(day,-1),course);
+    return {day,unit:state.unit,weekend:Study.isWeekend(day),xp:Math.max(0,current.xp-before.xp),streak:current.streak,weekSeal:current.weeks.includes(Study.weekStart(day))};
+  }
+  const api = { requiredModes, normalize, dayStatus, ledger, completion };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.EGIUClub = api;
 })(typeof window === 'undefined' ? globalThis : window);

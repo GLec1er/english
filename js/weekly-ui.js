@@ -31,7 +31,7 @@
     row=getState().weeks[week][k];
     if(W.done(row)){
      setKeys(null);
-     app.innerHTML=`<div class="page-narrow weekly-run">${heading()}<div class="card"><h2>Работа по этой ошибке завершена</h2><p>Разбор прочитан, исходный ответ исправлен и два дополнительных задания решены.</p>${Notes.render(note)}<a class="btn primary" href="${path(week)}">К остальным ошибкам</a></div></div>`;return;
+     app.innerHTML=`<div class="page-narrow weekly-run">${heading()}${host.dayCelebration?host.dayCelebration():''}<div class="card"><h2>Работа по этой ошибке завершена</h2><p>Разбор прочитан, исходный ответ исправлен и два дополнительных задания решены.</p>${Notes.render(note)}<a class="btn primary" href="${path(week)}">К остальным ошибкам</a></div></div>`;return;
     }
     const phase=W.phases.find(p=>!row.answers[p]?.ok),index=W.phases.indexOf(phase),it=index===0?original:drills[index-1];
     app.innerHTML=`<div class="page-narrow weekly-run">${heading()}<p class="page-intro">${index===0?'Вспомни и исправь исходное задание без подсказки.':`Дополнительный пример темы · ${index} из 2.`}</p><div class="card ex"><div class="area"></div><div class="fb" role="status" aria-live="polite"></div><div class="actions"><button class="btn primary weekly-check" type="button">Проверить</button><a class="btn ghost" href="${path(week)}">Продолжить позже</a></div></div></div>`;

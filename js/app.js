@@ -867,6 +867,8 @@
   }
   function rewardPanel(reward) {
     const day = todayKey(), state = dayState(day), goal = club.goals[day];
+    const celebrated=reward.closed?dayCelebration():'';
+    if(celebrated)return celebrated;
     const next = goal && !Study.isWeekend(day) ? goal.required.find((t) => !state.completed.includes(t)) : null;
     const nextExam = goal && !next && !Study.isWeekend(day) && !state.done && !Exam.status(exams, goal.unit).passed;
     return `<div class="reward-panel${reward.closed ? ' just-closed' : ''}" role="status">
@@ -875,6 +877,22 @@
         <p>${reward.xp ? `+${reward.xp} XP · ` : ''}${next ? `${state.completed.filter((t) => goal.required.includes(t)).length} из ${goal.required.length} занятий. Следующее — «${TYPES[next].name}».` : 'Результат записан в дневник.'}</p>
         ${reward.rank ? `<p class="rank-promoted">Новый ранг: <b lang="en">${reward.rank.en}</b> · ${reward.rank.ru}</p>` : ''}
         ${next ? `<a class="btn small primary" href="#/u/${goal.unit}/${next}">Следующее занятие ${icon('arrow')}</a>` : nextExam ? `<a class="btn small primary" href="#/u/${goal.unit}/exam">Перейти к экзамену ${icon('arrow')}</a>` : '<a href="#/calendar">Посмотреть неделю →</a>'}</div></div>`;
+  }
+  function dayCompletion(){
+    const day=todayKey(),revision=Weekly.status(weekly,day);
+    const pending=revision.debts.reduce((n,w)=>n+w.pending,0)+(Study.isWeekend(day)?revision.current.pending:0);
+    return Club.completion(activity,club,course,day,pending);
+  }
+  function dayCelebration(link=true) {
+    const completed=dayCompletion();
+    if(!completed)return '';
+    const day=completed.day,u=D.units[completed.unit],rank=Course.rank(course,day).current;
+    const checks=completed.weekend?['Повторение завершено']:u?[unitCompletion(u).complete?'Все упражнения выполнены':'Юнит закрыт',Exam.status(exams,u.n).passed?'Экзамен сдан':null].filter(Boolean):[];
+    return `<section class="day-celebration" role="status" aria-label="Сегодняшний день полностью закрыт">
+      <div class="completion-seal" aria-hidden="true"><span lang="en">The Study Club</span>${icon('check')}<b lang="en">Day<br>complete</b><small>${dateLabel(day,{day:'numeric',month:'short'})}</small></div>
+      <div class="completion-message"><span class="eyebrow">${dateLabel(day,{weekday:'long',day:'numeric',month:'long'})} · день закрыт</span><h2>Сегодня всё<br><em>выполнено.</em></h2><p>${u?`Unit ${u.n} · <span lang="en">${esc(u.title)}</span>`:'Повторение недели завершено.'}<br>Хорошая работа. Можно закрыть тетрадь и отдохнуть.</p><ul class="completion-checks">${checks.map(label=>`<li>${icon('check')}${label}</li>`).join('')}</ul></div>
+      <div class="completion-rewards"><div><b>+${completed.xp}<small> XP</small></b><span>заработано за сегодня</span></div><div><b>${completed.streak}<small> ${plural(completed.streak,'день','дня','дней')}</small></b><span>в серии занятий</span></div><p lang="en">${esc(rank.en)} <span>· ${rank.ru}</span></p>${completed.weekSeal?'<p class="completion-week-seal">Получена печать полной недели</p>':''}${link?'<a class="btn small" href="#/calendar">Открыть дневник →</a>':''}</div>
+    </section>`;
   }
   function todayPlan() {
     const day = todayKey();
@@ -891,7 +909,7 @@
     return `<div class="today-plan">
       <span class="eyebrow">${dateLabel(day, { weekday: 'long', day: 'numeric', month: 'long' })}</span>
       <h3>${weekend ? 'Повторить неделю' : 'Юнит на сегодня'}</h3>
-      ${state.done ? `<p class="plan-complete">${icon('check')} День закрыт</p>` : ''}
+      ${state.done ? `<p class="plan-complete">${icon('check')}${dayCompletion()?'Сегодня всё выполнено':'Повторение пройдено · осталось закрепить ошибки'}</p>` : ''}
       ${weekend ? `<p>${state.units.length ? `Вспомни ${state.units.length} ${plural(state.units.length, 'юнит', 'юнита', 'юнитов')}, которые закреплял в будни. В наборе будет задание из каждого.` : 'На этой неделе пока нет записанных юнитов. Проверяй ответы в будни — здесь появится набор для повторения.'}</p>
         ${state.units.length && !state.done ? '<p class="plan-help">+25 XP за полное повторение сегодня.</p>' : ''}
         ${Weekly.weekStatus(weekly,Study.weekStart(day)).pending ? `<a class="btn primary" href="#/weekly/${Study.weekStart(day)}">Сначала ошибки недели ${icon('arrow')}</a>` : state.units.length ? `<a class="btn primary" href="#/review/${day}">${state.done ? 'Повторить ещё раз' : 'Начать повторение'} ${icon('arrow')}</a>` : '<a class="btn" href="#/">Выбрать юнит</a>'}`
@@ -928,6 +946,7 @@
     app.innerHTML = `<div class="calendar-page">
       <span class="eyebrow">Личный ритм / 5 + 2</span><h1>Календарь занятий</h1>
       <p class="page-intro">Пн–пт — один юнит после книги. Сб и вс — повторение пройденного за неделю.</p>
+      ${dayCelebration(false)}
       ${weeklyUI.banner()}
       ${clubBoard()}
       <div class="calendar-layout">
@@ -1007,6 +1026,7 @@
           <div><b>${activeMistakes().length}</b><span>${plural(activeMistakes().length, 'ошибка', 'ошибки', 'ошибок')} на повтор</span></div>
         </div>
       </section>
+      ${dayCelebration()}
       ${clubBoard()}
       <section class="home-week" aria-label="Текущая неделя"><div class="week-heading"><h2>На этой неделе <span>${weekLabel(todayKey())}</span></h2><a href="#/calendar">Календарь ${icon('arrow')}</a></div>${weekGrid(todayKey())}</section>
       ${weeklyUI.banner()}
@@ -1074,6 +1094,7 @@
     const completion = unitCompletion(u), claimed = Course.closedUnits(course, todayKey()).has(u.n);
     app.innerHTML = `
       <div class="crumbs"><a href="#/">Оглавление</a> / <span lang="en">${esc(u.section.en)}</span></div>
+      ${course.closed[todayKey()]===u.n?dayCelebration():''}
       <div class="unit-heading"><span class="unit-number"><small>UNIT</small>${String(u.n).padStart(2, '0')}</span><h1 lang="en">${esc(u.title)}</h1></div>
       <div class="unit-layout">
         <aside class="unit-annotation" aria-label="Правило и отметка книги">
@@ -1224,7 +1245,7 @@
     const breakdown={};results.forEach(r=>{const b=breakdown[r.item.t]||(breakdown[r.item.t]={correct:0,total:0});b.total++;if(r.ok)b.correct++;});
     const goal=ensureGoal(), claimed=Course.closedUnits(course,todayKey()).has(u.n);
     const claimable=goal&&goal.unit===u.n&&!dayState(todayKey()).done&&!claimed&&Exam.canClose(exams,u.n,true);
-    return `<section class="card exam-result"><span class="eyebrow" lang="en">${passed?'Pass':'Try again'}</span><div class="exam-score"><b>${Math.round(correct/13*100)}%</b><span>${correct} / 13 верно</span></div>
+    return `${course.closed[todayKey()]===u.n?dayCelebration():''}<section class="card exam-result"><span class="eyebrow" lang="en">${passed?'Pass':'Try again'}</span><div class="exam-score"><b>${Math.round(correct/13*100)}%</b><span>${correct} / 13 верно</span></div>
       <h2>${passed?'Экзамен сдан':'Пока не сдан'}</h2><p>${passed ? claimed ? 'Юнит закрыт. Можно продолжать закрепление и возвращаться к сложным местам.' : 'Проверка пройдена. Закрыть этот юнит можно, выбрав его целью свободного буднего дня.' : 'Нужно минимум 11 верных ответов. Разбери сложные места, потренируйся и попробуй ещё раз.'}</p>
       <div class="exam-breakdown">${Object.entries(breakdown).map(([t,b])=>`<div><span>${TYPES[t].name}</span><b>${b.correct}/${b.total}</b></div>`).join('')}</div>
       <div class="actions">${claimable?'<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>':''}<button class="btn ${passed?'':'primary'} start-exam" type="button">${passed?'Пересдать для себя':'Новая попытка'}</button><a class="btn ghost" href="#/mistakes">Закрепить ошибки</a></div>
@@ -1595,7 +1616,7 @@
     record:(row,it,r,event)=>recordActivity({kind:'practice',session:'weekly:'+Study.weekStart(row.day)+':'+Weekly.key(row.ref),title:`Unit ${row.ref.u} · Ошибки недели`},[{...r,item:{ref:row.ref}}]).id,
     correctActivity:id=>{const e=activity.find(e=>e.id===id);if(e){e.correct=1;Store.set('activity',activity);}},
     originalAnswer:(item,r,event)=>{mistakes=Review.record(mistakes,item.ref,{...r,mode:item.t},todayKey(),event);Store.set('mistakes',mistakes);updateNav();},
-    undoOriginal:(item,event)=>{mistakes=Review.undo(mistakes,item.ref,event);Store.set('mistakes',mistakes);updateNav();},appeal:attachAnswerDispute,setKeys:fn=>{keyHandler=fn;}});
+    undoOriginal:(item,event)=>{mistakes=Review.undo(mistakes,item.ref,event);Store.set('mistakes',mistakes);updateNav();},appeal:attachAnswerDispute,setKeys:fn=>{keyHandler=fn;},dayCelebration});
   window.addEventListener('hashchange', route);
   route();
 })();
