@@ -122,7 +122,7 @@
   const clubLedger = () => Club.ledger(activity, club, todayKey(), course);
   function ensureGoal() {
     const day = todayKey();
-    if (Study.isWeekend(day)) return null;
+    if (Study.isWeekend(day) || Weekly.status(weekly,day).blocked) return null;
     if (!club.goals[day]) {
       const u = plannedUnit(day);
       club.goals[day] = { unit: u.n, required: unitTypes(u) };
@@ -132,6 +132,7 @@
     return club.goals[day];
   }
   function closeGoal(unit) {
+    if (Weekly.status(weekly,todayKey()).blocked) return;
     const goal = club.goals[todayKey()];
     if (!goal) return;
     course = Course.close(course, todayKey(), unit, Exam.canClose(exams, unit, unitCompletion(D.units[unit]).complete), goal.unit);
@@ -159,17 +160,23 @@
   const repaired=Corrections.repairSpelling({exams,mistakes,activity,learning},todayKey());
   if(repaired.changes.length){exams=repaired.exams;mistakes=repaired.mistakes;learning=repaired.learning;activity.splice(0,activity.length,...repaired.activity);saveExams();saveLearning();Store.set('activity',activity);}
   Store.set('mistakes', mistakes);
+  const Weekly=window.EGIUWeekly;
+  let weekly=Weekly.seed(Weekly.normalize(Store.get('weekly',{}),todayKey()),mistakes,activity,exams,steps,todayKey());
+  const saveWeekly=()=>Store.set('weekly',weekly);
+  saveWeekly();
   const mkey = Review.key;
   const activeMistakes = () => mistakes.filter((r) => r.stage < 3);
-  function trackMistake(item, result, event) {
+  function trackMistake(item, result, event, day=todayKey()) {
     if (!item.ref) return;
-    mistakes = Review.record(mistakes, item.ref, { ...result, mode: item.t }, todayKey(), event);
+    mistakes = Review.record(mistakes, item.ref, { ...result, mode: item.t }, day, event);
     Store.set('mistakes', mistakes);
+    weekly=Weekly.capture(weekly,item.ref,{...result,mode:item.t},day,event);saveWeekly();
   }
   function undoMistake(item, event) {
     if (!item.ref) return;
     mistakes = Review.undo(mistakes, item.ref, event);
     Store.set('mistakes', mistakes);
+    weekly=Weekly.cancel(weekly,item.ref,event);saveWeekly();
   }
   function reinforcement(item) {
     const r = item.ref && mistakes.find((r) => mkey(r) === mkey(item.ref));
@@ -647,6 +654,7 @@
   document.addEventListener('keydown', (e) => keyHandler && keyHandler(e));
 
   function session({ title, back, items, onDone, context = {} }) {
+    if(context.kind==='unit'&&!Weekly.canStart(weekly,course,todayKey(),context.unit))return weeklyUI.blockedPage();
     let pos = 0, ctl = {}, answered = false, ended = false, reward = null;
     const tracked = context.kind === 'unit' && context.unit && context.mode;
     const learningDraft = context.learningSession && learning.sessions[context.learningSession];
@@ -870,6 +878,7 @@
   }
   function todayPlan() {
     const day = todayKey();
+    if(!Study.isWeekend(day)&&Weekly.status(weekly,day).blocked)return `<div class="today-plan">${weeklyUI.banner()}<a class="btn ghost small" href="#/">Повторить закрытый юнит</a></div>`;
     const goal = ensureGoal();
     const state = dayState(day);
     const weekend = Study.isWeekend(day);
@@ -885,7 +894,7 @@
       ${state.done ? `<p class="plan-complete">${icon('check')} День закрыт</p>` : ''}
       ${weekend ? `<p>${state.units.length ? `Вспомни ${state.units.length} ${plural(state.units.length, 'юнит', 'юнита', 'юнитов')}, которые закреплял в будни. В наборе будет задание из каждого.` : 'На этой неделе пока нет записанных юнитов. Проверяй ответы в будни — здесь появится набор для повторения.'}</p>
         ${state.units.length && !state.done ? '<p class="plan-help">+25 XP за полное повторение сегодня.</p>' : ''}
-        ${state.units.length ? `<a class="btn primary" href="#/review/${day}">${state.done ? 'Повторить ещё раз' : 'Начать повторение'} ${icon('arrow')}</a>` : '<a class="btn" href="#/">Выбрать юнит</a>'}`
+        ${Weekly.weekStatus(weekly,Study.weekStart(day)).pending ? `<a class="btn primary" href="#/weekly/${Study.weekStart(day)}">Сначала ошибки недели ${icon('arrow')}</a>` : state.units.length ? `<a class="btn primary" href="#/review/${day}">${state.done ? 'Повторить ещё раз' : 'Начать повторение'} ${icon('arrow')}</a>` : '<a class="btn" href="#/">Выбрать юнит</a>'}`
         : `<label class="plan-label" for="today-unit">Один юнит после книги</label><select id="today-unit"${state.done ? ' disabled' : ''}>${D.list.map((item) => `<option value="${item.n}"${item.n === u.n ? ' selected' : ''}${Course.closedUnits(course, day).has(item.n) && item.n !== u.n ? ' disabled' : ''}>${String(item.n).padStart(2, '0')} · ${esc(item.title)}</option>`).join('')}</select>
         <div class="goal-heading"><b>${state.completed.filter((t) => goal.required.includes(t)).length} / ${goal.required.length} упражнений</b><span>+20 XP за день</span></div>
         ${goalList(goal, state)}
@@ -919,6 +928,7 @@
     app.innerHTML = `<div class="calendar-page">
       <span class="eyebrow">Личный ритм / 5 + 2</span><h1>Календарь занятий</h1>
       <p class="page-intro">Пн–пт — один юнит после книги. Сб и вс — повторение пройденного за неделю.</p>
+      ${weeklyUI.banner()}
       ${clubBoard()}
       <div class="calendar-layout">
         <section class="calendar-main" aria-labelledby="week-title">
@@ -954,6 +964,7 @@
   }
   function reviewPage(day) {
     const week = Study.weekStart(day), units = Study.weekUnits(activity, day);
+    if(Weekly.weekStatus(weekly,week).pending){weeklyUI.page(week);return;}
     if (!units.length) {
       app.innerHTML = `<div class="page-narrow"><span class="eyebrow">Повторение / ${weekLabel(day)}</span><h1>Пока нечего повторять</h1><p class="page-intro">На этой неделе нет записанных подходов к юнитам в будни. Проверь хотя бы один ответ после книги — его тема войдёт в недельное повторение.</p><a class="btn primary" href="#/">Выбрать юнит ${icon('arrow')}</a><a class="btn ghost" href="#/calendar/${day}">К календарю</a></div>`;
       return;
@@ -998,6 +1009,7 @@
       </section>
       ${clubBoard()}
       <section class="home-week" aria-label="Текущая неделя"><div class="week-heading"><h2>На этой неделе <span>${weekLabel(todayKey())}</span></h2><a href="#/calendar">Календарь ${icon('arrow')}</a></div>${weekGrid(todayKey())}</section>
+      ${weeklyUI.banner()}
       <div class="study-layout">
         <section class="study-library" aria-labelledby="library-title">
           <div class="library-head"><h2 id="library-title">Оглавление</h2>
@@ -1130,8 +1142,9 @@
   function restoreExamItem(it) { return it.ref.b?transferItem(it):makeItem(it.t, D.units[it.ref.u], it.ref.k, it.ref.i); }
   function runTopics() {
     let draft=learning.sessions.topics;
+    if(draft&&draft.items.some(it=>!Weekly.canStart(weekly,course,todayKey(),it.ref.u)))return weeklyUI.blockedPage();
     if(!draft){
-      const due=Learning.dueTopics(learning,todayKey()).slice(0,3);if(!due.length)return go('#/retention');
+      const due=Learning.dueTopics(learning,todayKey()).filter(r=>Weekly.canStart(weekly,course,todayKey(),r.unit)).slice(0,3);if(!due.length)return Weekly.status(weekly,todayKey()).blocked?weeklyUI.blockedPage():go('#/retention');
       const items=shuffle(due.flatMap(r=>shuffle(Exam.select(transferPool(r.unit,nextBank(r.unit).form))).slice(0,6)));
       learning=Learning.startSession(learning,'topics',items,Date.now()+'-topics',todayKey());saveLearning();draft=learning.sessions.topics;
       due.forEach(r=>{const it=draft.items.find(it=>it.ref.u===r.unit);learning=Learning.useForm(learning,r.unit,it.ref.v,draft.id);});saveLearning();
@@ -1175,7 +1188,7 @@
     }
     const results = attempt.items.map(d => ({...attempt.answers[Exam.key(d)],item:restoreExamItem(d)}));
     // Recover an interrupted final save, using stable IDs for the attempt and errors.
-    results.forEach(r => trackMistake(r.item,r,attempt.id + ':' + Exam.key(r.item)));
+    results.forEach(r => trackMistake(r.item,r,attempt.id + ':' + Exam.key(r.item),attempt.day));
     recordActivity({kind:'exam',unit:u.n,passed:results.filter(r=>r.ok).length/13>=0.8,session:attempt.id,title:`Unit ${u.n} · Экзамен`},results);
     updateNav();
   }
@@ -1203,7 +1216,7 @@
       });
     });
     const start = $('.start-exam');
-    if(start)start.onclick=()=>{if(!Exam.status(exams,u.n).draft){exams=Exam.start(exams,u.n,examItems(u),'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2),todayKey());saveExams();const a=Exam.status(exams,u.n).draft;if(a&&a.items[0].ref.b){learning=Learning.useForm(learning,u.n,a.items[0].ref.v,a.id);saveLearning();}}examRun(u);};
+    if(start)start.onclick=()=>{if(!Weekly.canStart(weekly,course,todayKey(),u.n))return weeklyUI.blockedPage();if(!Exam.status(exams,u.n).draft){exams=Exam.start(exams,u.n,examItems(u),'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2),todayKey());saveExams();const a=Exam.status(exams,u.n).draft;if(a&&a.items[0].ref.b){learning=Learning.useForm(learning,u.n,a.items[0].ref.v,a.id);saveLearning();}}examRun(u);};
   }
   function examResult(u,attempt) {
     const results=attempt.items.map(d=>({...attempt.answers[Exam.key(d)],item:restoreExamItem(d)}));
@@ -1256,6 +1269,7 @@
   }
 
   function startUnit(u, t) {
+    if(!Weekly.canStart(weekly,course,todayKey(),u.n))return weeklyUI.blockedPage();
     if (!TYPES[t] || !available(u, t)) return go('#/u/' + u.n);
     ensureGoal();
     Store.set('last', u.n);
@@ -1320,6 +1334,8 @@
     app.innerHTML = `<div class="page-narrow">
       <span class="eyebrow">Повторение / практика</span><h1>Смешанная практика</h1>
       <p class="page-intro">Случайные задания из выбранных тем — хороший способ повторения.</p>
+      ${weeklyUI.banner()}
+      ${Weekly.status(weekly,todayKey()).blocked?'<p class="muted small">В миксе доступны только закрытые юниты, пока не завершена работа над ошибками.</p>':''}
       <div class="card form">
         <label class="row"><input type="checkbox" class="onlybook"${bookUnits.length ? ' checked' : ' disabled'}> Только юниты, отмеченные «Пройдено в книге» (${bookUnits.length})</label>
         <h2>Разделы <button class="btn link small all" type="button">все</button> <button class="btn link small none" type="button">ни одного</button></h2>
@@ -1340,6 +1356,8 @@
       Store.set('mixTypes', types);
       let units = [].concat(...secs.map((s) => s.units));
       if ($('.onlybook').checked) units = units.filter((u) => book[u.n]);
+      units=units.filter(u=>Weekly.canStart(weekly,course,todayKey(),u.n));
+      if(!units.length&&secs.length&&Weekly.status(weekly,todayKey()).blocked){toast('В выбранных темах нет закрытых юнитов. Сначала заверши ошибки недели.');return;}
       if (!units.length || !types.length) { toast('Выберите хотя бы одну тему и тип задания'); return; }
       const pool = [];
       units.forEach((u) => types.forEach((t) => { if (available(u, t)) pool.push([u, t]); }));
@@ -1382,6 +1400,8 @@
     app.innerHTML = `<div class="page-narrow review-page">
       <span class="eyebrow" lang="en">The Study Club / Revision desk</span><h1>Работа над ошибками</h1>
       <p class="page-intro">Вернуться к правилу, вспомнить без подсказки, проверить через время.</p>
+      ${weeklyUI.banner()}
+      <a class="btn small" href="#/weekly">Недельная работа над ошибками →</a>
       ${learnUI.deskCard()}
       <div class="review-stats"><div><b>${stats.due}</b><span>на сегодня</span></div><div><b>${stats.active}</b><span>закрепляем</span></div><div><b>${stats.mastered}</b><span>закреплено</span></div></div>
       <div class="card review-plan"><h2>${stats.due ? 'Пора вспомнить' : stats.active ? 'Повторения запланированы' : stats.mastered ? 'Сложные места закреплены' : 'Пока без ошибок'}</h2>
@@ -1400,6 +1420,7 @@
       attachAnswerDispute(el,item,row.lastAnswer,()=>{
         const state={mistakes,steps,exams,activity},next=Disputes.resolve(state,row);if(next===state)return false;
         mistakes=next.mistakes;steps=next.steps;exams=next.exams;activity.splice(0,activity.length,...next.activity);
+        weekly=Weekly.cancel(weekly,row,row.lapses===1&&row.createdEvent?row.createdEvent:row.lastEvent);saveWeekly();
         Store.set('mistakes',mistakes);Store.set('steps',steps);saveExams();Store.set('activity',activity);
         if(!row.b&&getProg(row.u,row.lastMode)&&modeStatus(D.units[row.u],row.lastMode).complete){const answers=Object.values(steps[row.u+':'+row.lastMode]?.answers||{});if(answers.length)saveProg(row.u,row.lastMode,Math.round(answers.reduce((s,a)=>s+a.score,0)/answers.length*100));}
         mistakesPage();updateNav();toast('Ложная ошибка отменена. Предыдущие повторения сохранены.');
@@ -1531,7 +1552,7 @@
     if (synth) synth.cancel();
     if (recog) { recog.abort(); recog = null; }
     const p = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
-    const nav = { u: 'home', calendar: 'calendar', review: 'calendar', mix: 'mix', retention:'retention', phrases:'phrases', mistakes: 'mistakes', pron: 'pron', settings: 'settings' }[p[0]] || 'home';
+    const nav = { u: 'home', calendar: 'calendar', review: 'calendar', weekly:'mistakes', mix: 'mix', retention:'retention', phrases:'phrases', mistakes: 'mistakes', pron: 'pron', settings: 'settings' }[p[0]] || 'home';
     $$('[data-nav]').forEach((a) => {
       const active = a.dataset.nav === nav;
       a.classList.toggle('active', active);
@@ -1540,12 +1561,18 @@
     });
     if (p[0] === 'u' && D.units[p[1]]) {
       const u = D.units[p[1]];
-      if (p[2] === 'exam') examPage(u);
+      if(!Weekly.canStart(weekly,course,todayKey(),u.n))weeklyUI.blockedPage();
+      else if (p[2] === 'exam') examPage(u);
       else if (p[2] === 'context') learnUI.contextPage(u.n);
       else if (p[2]) startUnit(u, p[2]);
       else unitPage(u);
     } else if (p[0] === 'calendar') calendarPage(Study.date(p[1]) ? p[1] : todayKey());
     else if (p[0] === 'review') reviewPage(Study.date(p[1]) ? p[1] : todayKey());
+    else if(p[0]==='weekly'){
+      const week=Study.date(p[1])?Study.weekStart(p[1]):null;
+      let source=null;try{source=p[2]?decodeURIComponent(p[2]):null;}catch(e){}
+      if(week&&source)weeklyUI.run(week,source);else weeklyUI.page(week);
+    }
     else if (p[0] === 'retention') learnUI.retentionPage();
     else if (p[0] === 'phrases') learnUI.phrasesPage();
     else if (p[0] === 'mix') mixPage();
@@ -1563,6 +1590,12 @@
   const apiOptions=()=>{const o=Store.get('apiSettings',{});return {model:Tutor.models[o.model]?o.model:Tutor.DEFAULT_MODEL,limit:Number.isFinite(o.limit)&&o.limit>=.1&&o.limit<=50?o.limit:5};};
   const aiUI=window.EGIUAITutorUI({A:Tutor,Disputes,esc,$,getOptions:apiOptions,setOptions:o=>Store.set('apiSettings',o),getRows:()=>Tutor.normalizeUsage(Store.get('aiUsage',[])),setRows:r=>Store.set('aiUsage',r),today:todayKey,getDisputes:()=>Disputes.normalize(Store.get('aiDisputes',[])),setDisputes:r=>Store.set('aiDisputes',r),getReview:(n,k)=>learning.reviews[n]&&learning.reviews[n][k],saveReview:(n,k,r)=>{learning=Learning.saveReview(learning,n,k,r,todayKey());saveLearning();}});
   const learnUI = window.EGIULearningUI({app,$,$$,esc,L:Learning,getState:()=>learning,setState:s=>{learning=s;saveLearning();},today:todayKey,dateLabel,units:D.units,speak,toast,go,runTopics,wireRecorder,aiUI});
+  const weeklyUI=window.EGIUWeeklyUI({W:Weekly,P:window.EGIUWeeklyPractice,app,$,esc,getState:()=>weekly,setState:s=>{weekly=s;saveWeekly();},today:todayKey,dateLabel,weekLabel,shift:Study.shift,units:D.units,R,Notes,go,speak,answerNote,
+    sourceItem:row=>{const ref=row.ref,u=D.units[ref.u],mode=TYPES[row.mode]?row.mode:ref.k==='gap'?'fill':ref.k;return ref.b?transferItem({t:mode,ref}):makeItem(mode,u,ref.k,ref.i);},
+    record:(row,it,r,event)=>recordActivity({kind:'practice',session:'weekly:'+Study.weekStart(row.day)+':'+Weekly.key(row.ref),title:`Unit ${row.ref.u} · Ошибки недели`},[{...r,item:{ref:row.ref}}]).id,
+    correctActivity:id=>{const e=activity.find(e=>e.id===id);if(e){e.correct=1;Store.set('activity',activity);}},
+    originalAnswer:(item,r,event)=>{mistakes=Review.record(mistakes,item.ref,{...r,mode:item.t},todayKey(),event);Store.set('mistakes',mistakes);updateNav();},
+    undoOriginal:(item,event)=>{mistakes=Review.undo(mistakes,item.ref,event);Store.set('mistakes',mistakes);updateNav();},appeal:attachAnswerDispute,setKeys:fn=>{keyHandler=fn;}});
   window.addEventListener('hashchange', route);
   route();
 })();

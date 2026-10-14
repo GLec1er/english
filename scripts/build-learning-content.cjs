@@ -57,3 +57,23 @@ const units={};for(let n=1;n<=145;n++){
 const output='/* Generated from content/learning-recipes.txt by scripts/build-learning-content.cjs. */\n(function(root){const data='+JSON.stringify({version:1,units})+';if(typeof module!=="undefined"&&module.exports)module.exports=data;else root.EGIULearningData=data;})(typeof window==="undefined"?globalThis:window);\n';
 const dest=path.join(root,'js/learning-data.js');if(process.argv.includes('--check')){if(fs.readFileSync(dest,'utf8')!==output)throw Error('learning-data.js is stale');}else fs.writeFileSync(dest,output);
 console.log('145 context packs; 290 forms; 3770 assessment questions.');
+// Additional revision vocabulary leaves the existing assessment banks byte-for-byte unchanged.
+const extra={
+ doc:[['the maintenance report','the attendance list'],['отчёт об обслуживании','список присутствующих']],
+ item:[['the desk lamp','the storage box'],['настольную лампу','коробку для хранения']],
+ event:[['the language workshop','the science evening'],['языковое занятие','научный вечер']],
+ site:[['the lecture room','the music room'],['лекционный зал','музыкальную комнату']],
+ loc:[['in the lecture room','in the music room'],['в лекционном зале','в музыкальной комнате']],
+ destination:[['at the lecture room','at the music room'],['к лекционному залу','к музыкальной комнате']],
+ travel:[['to the lecture room','to the music room'],['к лекционному залу','к музыкальной комнате']],
+ task:[['the sorting','the delivery'],['сортировку','доставку']],
+ vehicle:[['the ferry','a minibus'],['паром','микроавтобус']]
+};
+const extraNominative={doc:['отчёт об обслуживании','список присутствующих'],item:['настольная лампа','коробка для хранения'],event:['языковое занятие','научный вечер'],site:['лекционный зал','музыкальная комната'],task:['сортировка','доставка']};
+for(const [name,pair]of Object.entries(extra)){domains[name][0].push(...pair[0]);domains[name][1].push(...pair[1]);if(nominative[name])nominative[name].push(...extraNominative[name]);}
+const weekly={};
+for(let n=1;n<=145;n++)weekly[n]={rule:c.EGIU.units[n].tip,cases:recipes[n].map(row=>[9,10].map(i=>{const x=substitute(row,i);return {raw:x.raw,translation:x.ru,hint:hint(x.raw)};}))};
+const weeklyOutput='/* Generated weekly practice from reviewed unit recipes. */\n(function(root){const data='+JSON.stringify({version:1,units:weekly})+';if(typeof module!=="undefined"&&module.exports)module.exports=data;else root.EGIUWeeklyData=data;})(typeof window==="undefined"?globalThis:window);\n';
+const weeklyDest=path.join(root,'js/weekly-data.js');
+if(process.argv.includes('--check')){if(fs.readFileSync(weeklyDest,'utf8')!==weeklyOutput)throw Error('weekly-data.js is stale');}else fs.writeFileSync(weeklyDest,weeklyOutput);
+console.log('1160 additional weekly practice examples.');
