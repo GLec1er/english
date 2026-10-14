@@ -8,3 +8,21 @@ test('reached daily limit prevents a paid request',async()=>{let calls=0,rows=[{
 test('network uncertainty keeps reservation and never retries automatically',async()=>{let calls=0,rows=[];const c=A.client({day:()=>day,getRows:()=>rows,setRows:x=>rows=x,fetch:async()=>{calls++;throw new Error('offline')}});await assert.rejects(c.check({key:'test',text:'Answer',limit:5}));assert.equal(calls,1);assert.equal(rows[0].state,'unknown');assert.ok(A.spent(rows,day)>0);});
 test('401 releases estimate; truncated paid response records usage without accepting feedback',async()=>{let rows=[];const c=A.client({day:()=>day,getRows:()=>rows,setRows:x=>rows=x,fetch:async()=>({ok:false,status:401})});await assert.rejects(c.check({key:'test',text:'Answer',limit:5}),/ключ/);assert.equal(A.spent(rows,day),0);const d=A.client({day:()=>day,getRows:()=>rows,setRows:x=>rows=x,fetch:async()=>({ok:true,json:async()=>({choices:[{finish_reason:'length'}],usage:{prompt_tokens:1000,completion_tokens:600}})})});await assert.rejects(d.check({key:'test',text:'Answer',limit:5}),/оборвался/);assert.equal(A.spent(rows,day),.276);});
 test('key vault keeps credentials outside progress exports and forgets both stores',()=>{const store=()=>{const m=new Map();return {m,getItem:k=>m.get(k)||null,setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)}};const session=store(),local=store(),v=A.vault(session,local);v.set('not-a-real-key',false);assert.equal(local.m.size,0);assert.equal(v.get(),'not-a-real-key');v.set('not-a-real-key',true);assert.ok([...local.m.keys()].every(k=>!k.startsWith('egiu:')));v.forget();assert.equal(v.get(),'');});
+const exercise={mode:'fill',prompt:'I ___ go.',expected:['would'],rule:'Modal + infinitive',hint:'',meaning:'',words:[],heard:''};
+const adjudication={verdict:'acceptable',explanation:'В этом контексте допустимо.',translation:'Я бы пошёл.',suggestedAnswer:'would'};
+test('an appeal sends expected answers as fallible evidence and requires a separate verdict',()=>{
+ const p=A.payload({type:'dispute',text:'could',exercise});
+ const data=JSON.parse(p.messages[1].content);assert.deepEqual(data.exercise.expected,['would']);assert.equal(data.answer,'could');
+ assert.deepEqual(p.response_format.json_schema.schema.properties.verdict.enum,['acceptable','incorrect','uncertain']);
+ assert.throws(()=>A.payload({type:'dispute',text:'answer',exercise:{...exercise,prompt:'x'.repeat(4001)}}));
+ assert.throws(()=>A.payload({type:'dispute',text:'answer',exercise:{...exercise,mode:'unknown'}}));
+});
+test('the paid client validates the appeal schema without changing the ordinary writing schema',async()=>{
+ let rows=[];const c=A.client({day:()=>day,getRows:()=>rows,setRows:x=>rows=x,fetch:async()=>({ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(adjudication)},finish_reason:'stop'}],usage:{prompt_tokens:1000,completion_tokens:600}})})});
+ const r=await c.check({type:'dispute',key:'test',text:'could',exercise,limit:5});assert.deepEqual(r.review,adjudication);assert.equal(r.cost,.276);
+ assert.throws(()=>A.parseDispute(JSON.stringify({...adjudication,verdict:'yes'})));assert.throws(()=>A.parseDispute(JSON.stringify(review)));
+});
+test('a blank gap can be adjudicated as a deliberate empty answer without allowing empty writing requests',()=>{
+ assert.equal(JSON.parse(A.payload({type:'dispute',text:'',exercise}).messages[1].content).answer,'');
+ assert.throws(()=>A.payload({text:''}));
+});

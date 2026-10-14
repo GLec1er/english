@@ -35,6 +35,7 @@
     const current=RANKS.slice().reverse().find(r=>done>=r.at),nextRank=RANKS.find(r=>r.at>done)||null;
     return {done,total:145,current,next:nextRank,remaining:nextRank?nextRank.at-done:0,pct:Math.round(done/145*100)};
   }
-  const api={RANKS,normalize,close,next,rank,closedUnits};
+  function planAfter(course,day){if(!Study.date(day))return null;const tomorrow=Study.shift(day,1),unit=next(course,tomorrow);return {day:tomorrow,kind:Study.isWeekend(tomorrow)?'review':unit?'unit':'free',unit:Study.isWeekend(tomorrow)?null:unit};}
+  const api={RANKS,normalize,close,next,rank,closedUnits,planAfter};
   if(typeof module!=='undefined'&&module.exports) module.exports=api;else root.EGIUCourse=api;
 })(typeof window==='undefined'?globalThis:window);

@@ -4,7 +4,7 @@
 
   const D = window.EGIU;
   const Notes = window.EGIUNotes;
-  const Exam = window.EGIUExam, Review = window.EGIUReview, Learning = window.EGIULearning;
+  const Exam = window.EGIUExam, Review = window.EGIUReview, Learning = window.EGIULearning, Disputes = window.EGIUDisputes, Corrections=window.EGIUCorrections;
   const app = document.getElementById('app');
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -93,7 +93,7 @@
   const dailyPlan = storedPlan && typeof storedPlan === 'object' && !Array.isArray(storedPlan) ? storedPlan : {};
   const todayKey = () => Study.dateKey(new Date());
   const Steps = window.EGIUSteps, Course = window.EGIUCourse;
-  const steps = Steps.normalize(Store.get('steps', {}));
+  let steps = Steps.normalize(Store.get('steps', {}));
   const storedCourse = Store.get('course', null);
   let course = Course.normalize(storedCourse);
   if (!storedCourse) {
@@ -156,6 +156,8 @@
     return { id, xp: after.xp - before.xp, closed: !wasDone && dayState(todayKey()).done, week: after.weeks.length > before.weeks.length, rank: rank.current.en !== beforeRank ? rank.current : null };
   }
   let mistakes = Review.normalize(Store.get('mistakes', []), todayKey());
+  const repaired=Corrections.repairSpelling({exams,mistakes,activity,learning},todayKey());
+  if(repaired.changes.length){exams=repaired.exams;mistakes=repaired.mistakes;learning=repaired.learning;activity.splice(0,activity.length,...repaired.activity);saveExams();saveLearning();Store.set('activity',activity);}
   Store.set('mistakes', mistakes);
   const mkey = Review.key;
   const activeMistakes = () => mistakes.filter((r) => r.stage < 3);
@@ -173,6 +175,10 @@
     const r = item.ref && mistakes.find((r) => mkey(r) === mkey(item.ref));
     if (!r) return '';
     return `<p class="reinforcement">${r.stage === 3 ? 'Закреплено · три проверки с интервалами.' : `Закрепление ${r.stage} / 3 · следующее повторение ${dateLabel(r.due)}.`}${r.lastReviewDay !== todayKey() && r.due > todayKey() ? ' Ранняя практика не ускоряет интервал.' : ''}</p>`;
+  }
+  function attachAnswerDispute(container,item,user,onAccept){
+    if(!container)return;
+    try{const exercise=Disputes.exercise(item,D.units[item.ref&&item.ref.u]&&D.units[item.ref.u].tip);if(exercise)aiUI.attachDispute({container,exercise,text:user||'',onAccept});}catch(e){container.textContent=e.message;}
   }
 
   function toast(msg) {
@@ -225,7 +231,7 @@
   function same(user, answers) {
     const u = variants(norm(user));
     return answers.some((a) => {
-      for (const v of variants(norm(a))) if (u.has(v)) return true;
+      for (const v of variants(norm(a))) for(const supplied of u)if(Notes.spellingKey(supplied)===Notes.spellingKey(v))return true;
       return false;
     });
   }
@@ -675,7 +681,7 @@
       bar.style.width = done / total * 100 + '%';
       $('.sess-top .bar').setAttribute('aria-valuenow', done);
     }
-    function persistAnswer(r) {
+    function persistAnswer(r,recordMissingActivity=true) {
       if (learningDraft) {
         learning=Learning.answerSession(learning,context.learningSession,Learning.key(r.item.ref),r);
         if(r.ok)learning=Learning.acceptSessionAnswer(learning,context.learningSession,Learning.key(r.item.ref));
@@ -683,16 +689,25 @@
       }
       if (!tracked) return;
       if(context.mode==='mc'){learning=Learning.recordRecognition(learning,context.unit,[{key:Learning.key(r.item.ref),ok:r.ok}]);saveLearning();}
-      steps[entryId] = Steps.record(steps[entryId], stepKey(r.item), r, Date.now());
-      Store.set('steps', steps);
       let row = activity.find((e) => e.id === r.eventId);
+      // Legacy answers predate the event link: correct their saved grade without inventing another attempt.
+      if(!row&&!recordMissingActivity){steps[entryId]=Steps.record(steps[entryId],stepKey(r.item),r,r.ts);Store.set('steps',steps);return;}
       if (!row) {
         r.eventId = Date.now() + '-' + Math.random().toString(36).slice(2);
         row = { id: r.eventId, session: sessionId, ts: Date.now(), day: todayKey(), kind: 'step', units: [context.unit], mode: context.mode, title, answers: 1, correct: 0 };
         activity.push(row);
       }
       row.correct = r.ok ? 1 : 0;
+      steps[entryId] = Steps.record(steps[entryId], stepKey(r.item), r, Date.now());
+      Store.set('steps', steps);
       Store.set('activity', activity);
+    }
+    function acceptResult(r){
+      if(r.ok)return false;
+      r.ok=true;r.score=1;undoMistake(r.item,r.reviewEvent);persistAnswer(r,!baseline.includes(r));
+      if(reward&&onDone)onDone(accuracy(),results());
+      if(reward&&!tracked){const row=activity.find(e=>e.session===sessionId);if(row){row.correct=results().filter(r=>r.ok).length;Store.set('activity',activity);}}
+      updateNav();return true;
     }
     function commitCompleted() {
       if (reward) return;
@@ -733,16 +748,13 @@
           <div class="fb-actions">
             ${r.say ? `<button class="btn small say" type="button">${icon('volume')} Послушать</button>` : ''}
             ${!r.ok && r.override ? '<button class="btn small link ovr" type="button">Мой ответ тоже верный</button>' : ''}
-          </div>${Notes.render(answerNote(it, r))}${reinforcement(it)}`;
+          </div>${Notes.render(answerNote(it, r))}${reinforcement(it)}${!r.ok?'<div class="answer-dispute"></div>':''}`;
         const s = $('.say', fb); if (s) s.onclick = () => speak(r.say);
         const o = $('.ovr', fb);
         if (o) o.onclick = () => {
-          r.ok = true; r.score = 1;
-          undoMistake(it, r.reviewEvent);
-          persistAnswer(r);
-          if (reward && onDone) onDone(accuracy());
-          draw(); updateNav();
+          acceptResult(r);draw();
         };
+        if(!r.ok)attachAnswerDispute($('.answer-dispute',fb),it,r.user,()=>{if(!acceptResult(r))return false;draw();toast('Ответ зачтён. Ложная ошибка отменена.');});
       };
       draw();
       if (r.say && settings.autoplay) speak(r.say);
@@ -752,6 +764,9 @@
     function end() {
       if (ended) return;
       ended = true; keyHandler = null; drawProgress(); commitCompleted();
+      drawSummary();
+    }
+    function drawSummary(){
       const pct = accuracy(), wrong = results().filter((r) => !r.ok);
       const msg = pct >= 90 ? 'Хороший результат. Можно перейти к следующему упражнению.' : pct >= 70 ? 'Хороший результат. Осталось разобрать ошибки.' : pct >= 50 ? 'Есть над чем поработать. Повтори сложные задания.' : 'Вернись к правилу в книге и попробуй ещё раз.';
       $('.ex').innerHTML = `<div class="summary">
@@ -759,12 +774,13 @@
         ${rewardPanel(reward)}
         ${learningDraft?'<p><a href="#/retention">Посмотреть следующие даты повторения →</a></p>':''}
         ${context.kind==='review'?`<div class="week-context-next"><h3>Закрепи собственной речью</h3><p>После смешанной проверки выбери тему недели: прослушай контекст и расскажи свою ситуацию. В воскресенье начни с этого блока.</p>${[...new Set(results().map(r=>r.item.ref.u))].map(n=>`<a class="btn small" href="#/u/${n}/context">Unit ${n} · своя речь</a>`).join('')}</div>`:''}
-        ${wrong.length ? `<h3>Ошибки (${wrong.length})</h3><ul class="wronglist">${wrong.map((r) => `<li>${r.correct || esc(r.item.data.full || '')}${r.user ? `<div class="muted small">ваш ответ: ${esc(r.user)}</div>` : ''}</li>`).join('')}</ul>` : ''}
+        ${wrong.length ? `<h3>Ошибки (${wrong.length})</h3><ul class="wronglist">${wrong.map((r) => `<li>${r.correct || esc(r.item.data.full || '')}${r.user ? `<div class="muted small">ваш ответ: ${esc(r.user)}</div>` : ''}<div class="answer-dispute"></div></li>`).join('')}</ul>` : ''}
         <div class="actions">
           ${wrong.length ? '<button class="btn primary again-wrong" type="button">Повторить ошибки</button>' : ''}
           <button class="btn again" type="button">Ещё раз</button><button class="btn ghost back" type="button">Назад</button>
         </div></div>`;
       const aw = $('.again-wrong');
+      $$('.wronglist .answer-dispute').forEach((el,i)=>attachAnswerDispute(el,wrong[i].item,wrong[i].user,()=>{if(!acceptResult(wrong[i]))return false;drawSummary();toast('Ответ зачтён. Результат обновлён.');}));
       if (aw) aw.onclick = () => session({ title: title + ' · ошибки', back, items: shuffle(wrong.map((r) => r.item)), onDone: null });
       $('.again').onclick = () => learningDraft ? go('#/retention') : session({ title, back, items: shuffle(allItems), onDone, context });
       $('.back').onclick = () => go(back);
@@ -875,7 +891,13 @@
         ${goalList(goal, state)}
         <p class="plan-help">Все упражнения → экзамен от 80% → закрытый день. Один юнит в будний день.</p>
         ${allComplete && !exam.passed && !state.done ? `<a class="btn primary" href="#/u/${u.n}/exam">${exam.draft ? 'Продолжить экзамен' : 'Сдать экзамен'} ${icon('arrow')}</a>` : canClaim ? '<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>' : `<a class="btn primary today-start" href="#/u/${u.n}${next && !state.done ? '/' + next : ''}">${state.done ? 'Продолжить практику' : next ? 'Следующее занятие' : 'Открыть юнит'} ${icon('arrow')}</a>`}`}
-    </div>`;
+    </div>`+(state.done?afterDayPlan(day):'');
+  }
+  function afterDayPlan(day){
+    const plan=Course.planAfter(course,day),topics=Learning.dueTopics(learning,day),errors=Review.due(mistakes,day);
+    if(!plan)return '';
+    const u=plan.kind==='unit'?plannedUnit(plan.day):null,closedUnit=course.closed[day];
+    return `<section class="card after-day-plan" aria-label="После закрытого дня"><span class="eyebrow">Следующая страница</span><h3>Завтра · ${dateLabel(plan.day,{weekday:'long',day:'numeric',month:'long'})}</h3><p>${u?`Unit ${u.n} · <span lang="en">${esc(u.title)}</span>`:plan.kind==='review'?'Повторение юнитов этой недели. Новую тему закрывать не нужно.':'Все юниты закрыты. Можно возвращаться к темам и собственной речи.'}</p><div class="actions"><a class="btn small" href="#/calendar/${plan.day}">Посмотреть план</a>${closedUnit?`<a class="btn small" href="#/u/${closedUnit}/context">Unit ${closedUnit} · применить в своей речи</a>`:''}</div>${topics.length||errors.length?`<div class="after-day-review"><p>Можно закрепить сегодня — без нового юнита:</p><div class="actions">${topics.length?`<a class="btn small" href="#/retention">Темы на повторение · ${topics.length}</a>`:''}${errors.length?`<a class="btn small" href="#/mistakes">Ошибки на сегодня · ${errors.length}</a>`:''}</div></div>`:'<p class="muted small">Обязательных повторений на сегодня нет.</p>'}</section>`;
   }
   function wireTodayPlan() {
     const select = $('#today-unit');
@@ -1169,6 +1191,16 @@
       ${!status.draft?`<p class="exam-bank-note">Следующая попытка: вариант ${nextBank(u.n).form} · ${nextBank(u.n).fresh?'отдельные примеры, которые здесь ещё не проверялись':'повторение знакомого набора; оба варианта уже использовались'}.</p>`:''}
       ${status.draft ? `<div class="card exam-intro"><h2>Продолжим с оставшегося</h2><p>Сохранено ${status.answered} из 13 ответов. Порядок и ответы этой попытки сохранятся.</p><button class="btn primary start-exam" type="button">Продолжить экзамен</button></div>` : status.last ? examResult(u,status.last) : `<div class="card exam-intro"><h2>Проверить себя без подсказок</h2><p>13 разных примеров: выбор, форма, порядок слов, исправление, перефразирование и аудирование. Для сдачи нужно не меньше 11 верных ответов.</p><p>Ответы сохраняются по одному. Полный разбор и оценка появятся в конце; исправить ответ в этой попытке нельзя. В аудировании можно слушать повторно.</p><button class="btn primary start-exam" type="button">Начать экзамен</button></div>`}
     </div>`;
+    if(status.last&&!status.draft)$$('[data-exam-appeal]').forEach(el=>{
+      const descriptor=status.last.items[+el.dataset.examAppeal],item=restoreExamItem(descriptor),answer=status.last.answers[Exam.key(descriptor)];
+      attachAnswerDispute(el,item,answer.user,()=>{
+        const next=Exam.accept(exams,u.n,status.last.id,Exam.key(descriptor),answer.user);if(next===exams)return false;
+        exams=next;saveExams();undoMistake(item,status.last.id+':'+Exam.key(descriptor));
+        const attempt=exams.units[u.n].history.find(a=>a.id===status.last.id),count=Object.values(attempt.answers).filter(a=>a.ok).length;
+        activity.forEach(e=>{if(e.kind==='exam'&&e.session===attempt.id)e.correct=count;});Store.set('activity',activity);
+        examPage(u);wireClaim();updateNav();toast('Ответ зачтён. Результат этой попытки пересчитан.');
+      });
+    });
     const start = $('.start-exam');
     if(start)start.onclick=()=>{if(!Exam.status(exams,u.n).draft){exams=Exam.start(exams,u.n,examItems(u),'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2),todayKey());saveExams();const a=Exam.status(exams,u.n).draft;if(a&&a.items[0].ref.b){learning=Learning.useForm(learning,u.n,a.items[0].ref.v,a.id);saveLearning();}}examRun(u);};
   }
@@ -1184,7 +1216,7 @@
       <div class="actions">${claimable?'<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>':''}<button class="btn ${passed?'':'primary'} start-exam" type="button">${passed?'Пересдать для себя':'Новая попытка'}</button><a class="btn ghost" href="#/mistakes">Закрепить ошибки</a></div>
       ${course.closed[todayKey()]===u.n?`<p class="exam-day-complete">${icon('check')} День закрыт · ранг <span lang="en">${Course.rank(course,todayKey()).current.en}</span><a href="#/calendar">Дневник →</a></p>`:''}
     </section><h2>Разбор всех ответов</h2><p class="muted small">Ошибки сохранены в журнале. Первое повторение — через день, затем через 3 и 7 дней.</p>
-      <div class="exam-analysis">${results.map((r,i)=>`<details class="exam-answer ${r.ok?'is-correct':'is-wrong'}"${!r.ok?' open':''}><summary><span>${i+1}. ${TYPES[r.item.t].name}</span><b>${r.ok?'Верно':'Разобрать'}</b></summary><p class="exam-user">Твой ответ: <span lang="en">${esc(r.user || '∅')}</span></p><p class="answer" lang="en">${esc(correctText(r.item))}</p>${Notes.render(answerNote(r.item,r))}</details>`).join('')}</div>`;
+      <div class="exam-analysis">${results.map((r,i)=>`<details class="exam-answer ${r.ok?'is-correct':'is-wrong'}"${!r.ok?' open':''}><summary><span>${i+1}. ${TYPES[r.item.t].name}</span><b>${r.correction==='spelling'?'Вариант написания принят':r.accepted?'Зачтено после разбора':r.ok?'Верно':'Разобрать'}</b></summary><p class="exam-user">Твой ответ: <span lang="en">${esc(r.user || '∅')}</span></p><p class="answer" lang="en">${esc(correctText(r.item))}</p>${Notes.render(answerNote(r.item,r))}${!r.ok?`<div data-exam-appeal="${i}"></div>`:''}</details>`).join('')}</div>`;
   }
   function examRun(u) {
     const draft=Exam.status(exams,u.n).draft;
@@ -1342,9 +1374,9 @@
       const item = reviewItem(r), note = item && answerNote(item, { ok: false });
       const full = item && (item.data.full || item.data.q);
       return `<article class="error-entry"><div class="error-entry-top"><a href="#/u/${r.u}">Unit ${r.u} · ${esc(D.units[r.u].title)}</a><span>${r.stage === 3 ? 'Закреплено' : r.due <= todayKey() ? 'Пора повторить' : dateLabel(r.due)}</span></div>
-        <p lang="en">${esc(full || '')}</p>${r.lastAnswer ? `<p class="muted small">Последняя ошибка: <span lang="en">${esc(r.lastAnswer)}</span> · ${esc(TYPES[r.lastMode] ? TYPES[r.lastMode].name : 'практика')}</p>` : ''}
+        <p lang="en">${esc(full || '')}</p>${r.lastAnswer||TYPES[r.lastMode] ? `<p class="muted small">Последняя ошибка: <span lang="en">${esc(r.lastAnswer||'∅')}</span> · ${esc(TYPES[r.lastMode] ? TYPES[r.lastMode].name : 'практика')}</p>` : ''}
         <div class="error-entry-bottom"><span>Закрепление ${r.stage} / 3</span><span>Ошибок: ${r.lapses}</span></div><label class="error-category">Причина (твоя оценка) <select data-error-key="${esc(mkey(r))}" aria-label="Причина ошибки в Unit ${r.u}">${Object.entries(errorCategories).map(([k,label])=>`<option value="${k}"${r.category===k?' selected':''}>${esc(label)}</option>`).join('')}</select></label>
-        ${note ? `<details class="error-rule"><summary>Вспомнить перевод и правило</summary>${Notes.render(note)}</details>` : ''}</article>`;
+        ${note ? `<details class="error-rule"><summary>Вспомнить перевод и правило</summary>${Notes.render(note)}</details>` : ''}${r.stage<3&&TYPES[r.lastMode]?`<div data-journal-appeal="${esc(mkey(r))}"></div>`:''}</article>`;
     }).join('');
     app.innerHTML = `<div class="page-narrow review-page">
       <span class="eyebrow" lang="en">The Study Club / Revision desk</span><h1>Работа над ошибками</h1>
@@ -1360,6 +1392,18 @@
       ${stats.mastered ? `<details class="mastered-errors"><summary>Закреплённые примеры · ${stats.mastered}</summary>${rows(mistakes.filter(r=>r.stage===3))}</details>` : ''}
     </div>`;
     $$('[data-error-key]').forEach(el=>el.onchange=()=>{mistakes=mistakes.map(r=>mkey(r)===el.dataset.errorKey?{...r,category:el.value}:r);Store.set('mistakes',mistakes);});
+    $$('[data-journal-appeal]').forEach(el=>{
+      const row=mistakes.find(r=>mkey(r)===el.dataset.journalAppeal);let item=null;
+      if(row&&TYPES[row.lastMode]){const u=D.units[row.u];prep(u);item=row.b?transferItem({t:row.lastMode,ref:row}):makeItem(row.lastMode,u,row.k,row.i);}
+      if(!item)return;
+      attachAnswerDispute(el,item,row.lastAnswer,()=>{
+        const state={mistakes,steps,exams,activity},next=Disputes.resolve(state,row);if(next===state)return false;
+        mistakes=next.mistakes;steps=next.steps;exams=next.exams;activity.splice(0,activity.length,...next.activity);
+        Store.set('mistakes',mistakes);Store.set('steps',steps);saveExams();Store.set('activity',activity);
+        if(!row.b&&getProg(row.u,row.lastMode)&&modeStatus(D.units[row.u],row.lastMode).complete){const answers=Object.values(steps[row.u+':'+row.lastMode]?.answers||{});if(answers.length)saveProg(row.u,row.lastMode,Math.round(answers.reduce((s,a)=>s+a.score,0)/answers.length*100));}
+        mistakesPage();updateNav();toast('Ложная ошибка отменена. Предыдущие повторения сохранены.');
+      });
+    });
     function run(list) { session({title:'Закрепление ошибок',back:'#/mistakes',items:list.slice(0,20).map(reviewItem).filter(Boolean)}); }
     const start = $('.start-due'); if(start)start.onclick = () => run(due);
     const early = $('.start-early'); if(early)early.onclick = () => run(active);
@@ -1516,7 +1560,7 @@
 
   const Tutor=window.EGIUAITutor;
   const apiOptions=()=>{const o=Store.get('apiSettings',{});return {model:Tutor.models[o.model]?o.model:Tutor.DEFAULT_MODEL,limit:Number.isFinite(o.limit)&&o.limit>=.1&&o.limit<=50?o.limit:5};};
-  const aiUI=window.EGIUAITutorUI({A:Tutor,esc,$,getOptions:apiOptions,setOptions:o=>Store.set('apiSettings',o),getRows:()=>Tutor.normalizeUsage(Store.get('aiUsage',[])),setRows:r=>Store.set('aiUsage',r),today:todayKey,getReview:(n,k)=>learning.reviews[n]&&learning.reviews[n][k],saveReview:(n,k,r)=>{learning=Learning.saveReview(learning,n,k,r,todayKey());saveLearning();}});
+  const aiUI=window.EGIUAITutorUI({A:Tutor,Disputes,esc,$,getOptions:apiOptions,setOptions:o=>Store.set('apiSettings',o),getRows:()=>Tutor.normalizeUsage(Store.get('aiUsage',[])),setRows:r=>Store.set('aiUsage',r),today:todayKey,getDisputes:()=>Disputes.normalize(Store.get('aiDisputes',[])),setDisputes:r=>Store.set('aiDisputes',r),getReview:(n,k)=>learning.reviews[n]&&learning.reviews[n][k],saveReview:(n,k,r)=>{learning=Learning.saveReview(learning,n,k,r,todayKey());saveLearning();}});
   const learnUI = window.EGIULearningUI({app,$,$$,esc,L:Learning,getState:()=>learning,setState:s=>{learning=s;saveLearning();},today:todayKey,dateLabel,units:D.units,speak,toast,go,runTopics,wireRecorder,aiUI});
   window.addEventListener('hashchange', route);
   route();

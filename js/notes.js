@@ -4,6 +4,9 @@
   const Data=typeof module!=='undefined'&&module.exports?require('./notes-data.js'):root.EGIUNotesData;
   const kinds={gap:'g',err:'e',tr:'t',write:'w'};
   const canonical=s=>String(s||'').replace(/[’‘]/g,"'").replace(/\s+/g,' ').trim().toLowerCase();
+  // Both spellings are standard: https://dictionary.cambridge.org/dictionary/english/organize
+  const spellingKey=s=>String(s||'').replace(/\borganis(e|es|ed|ing)\b/gi,(_,suffix)=>'organiz'+suffix.toLowerCase());
+  function spellingOnlyMatch(user,answers){const literal=s=>canonical(s).replace(/[.,!?;:]/g,'').replace(/\s+/g,' ').trim();return !answers.some(a=>literal(user)===literal(a))&&answers.some(a=>literal(spellingKey(user))===literal(spellingKey(a)));}
   function unpack(row,source){
     return row&&canonical(row[0])===canonical(source)?{translation:row[1],explanation:row[2]}:null;
   }
@@ -48,6 +51,6 @@
     if(!note)return '';
     return `<section class="answer-notes" aria-label="Перевод и объяснение"><div class="note-translation"><h3>Перевод</h3><p>${escape(note.translation)}</p></div><div class="note-reason"><h3>Почему так</h3><p>${escape(note.explanation)}</p></div>${note.alternatives?`<ul class="note-alternatives">${note.alternatives.map(a=>`<li><span lang="en">${escape(a.en)}</span><span>${escape(a.translation)}</span></li>`).join('')}</ul>`:''}</section>`;
   }
-  const api={forResult,render,accepted,answers,orderAnswers};
+  const api={forResult,render,accepted,answers,orderAnswers,spellingKey,spellingOnlyMatch};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.EGIUNotes=api;
 })(typeof window==='undefined'?globalThis:window);
