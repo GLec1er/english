@@ -2020,6 +2020,38 @@ audio {
 .reward-panel>.icon { color: var(--good); }
 .day-stamp { display: flex; align-items: center; justify-content: center; width: 78px; height: 78px; flex: none; border: 4px double var(--accent); border-radius: 50%; text-align: center; text-transform: uppercase; letter-spacing: .03em; color: var(--accent); font: 13px/1.2 var(--serif); transform: rotate(-10deg); }
 .just-closed .day-stamp { animation: stamp-in .35s ease-out both; }
+.day-celebration {--completion-gold:#d6bd83;position:relative;display:grid;grid-template-columns:140px minmax(0,1fr) 190px;gap:32px;align-items:center;margin:28px 0;padding:38px;color:#f8f3e7;background:#1b2b37;border:1px solid #52616a;box-shadow:inset 0 0 0 7px #1b2b37,inset 0 0 0 8px #75684b}
+.day-celebration .eyebrow {color:var(--completion-gold);font-size:10px;letter-spacing:.12em}
+.day-celebration h2 {font-family:var(--serif);font-size:clamp(32px,4.2vw,51px);font-weight:500;line-height:1.08;letter-spacing:-.03em;margin:14px 0 18px;color:#f8f3e7}
+.day-celebration h2 em {color:var(--completion-gold);font-weight:400}
+.completion-message>p {font-size:13px;line-height:1.65;color:#d0d9da;margin:0}
+.completion-seal {width:140px;height:140px;border:1px solid var(--completion-gold);border-radius:50%;outline:1px solid #75684b;outline-offset:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--completion-gold);text-align:center;transform:rotate(-7deg);animation:completion-seal-in .55s ease-out both}
+.completion-seal>span {font-size:8px;text-transform:uppercase;letter-spacing:.13em}
+.completion-seal>.icon {width:27px;height:27px;margin:8px 0 4px}
+.completion-seal>b {font:21px/1.04 var(--serif)}
+.completion-seal>small {font-size:9px;letter-spacing:.08em;margin-top:8px}
+.completion-checks {display:flex;flex-wrap:wrap;gap:8px 18px;list-style:none;padding:0;margin:18px 0 0;color:#e3d6b4;font-size:11px}
+.completion-checks li {display:flex;gap:6px;align-items:center}
+.completion-checks .icon {width:13px;height:13px}
+.completion-rewards {align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:17px;padding-left:24px;border-left:1px solid #52616a}
+.completion-rewards>div>b {display:block;color:var(--completion-gold);font:30px/1.1 var(--serif)}
+.completion-rewards b small {font:11px system-ui,sans-serif}
+.completion-rewards>div>span {font-size:10px;color:#c5ced0}
+.completion-rewards>p {margin:0;font:15px var(--serif);color:#f8f3e7}
+.completion-rewards>p>span {font:10px system-ui,sans-serif;color:#c5ced0}
+.completion-rewards .completion-week-seal {font:11px/1.4 system-ui,sans-serif;color:var(--completion-gold)}
+.completion-rewards .btn {color:#f8f3e7;border-color:#75684b;align-self:flex-start;background:transparent}
+.completion-rewards .btn:hover {background:#30424e;border-color:var(--completion-gold)}
+.page-narrow .day-celebration {grid-template-columns:100px minmax(0,1fr);gap:26px;padding:30px}
+.page-narrow .completion-seal {width:100px;height:100px}
+.page-narrow .completion-seal>b {font-size:16px}
+.page-narrow .completion-seal>.icon {width:20px;height:20px;margin:5px 0}
+.page-narrow .completion-rewards {grid-column:1/-1;flex-direction:row;justify-content:flex-start;align-items:center;flex-wrap:wrap;border-left:0;border-top:1px solid #52616a;padding:20px 0 0;gap:18px 28px}
+.page-narrow .day-celebration h2 {font-size:36px}
+@keyframes completion-seal-in {from{opacity:0;transform:scale(1.2) rotate(-16deg)}to{opacity:1;transform:scale(1) rotate(-7deg)}}
+@media(max-width:850px){.day-celebration{grid-template-columns:110px minmax(0,1fr);padding:30px;gap:28px}.completion-seal{width:110px;height:110px}.completion-rewards{grid-column:1/-1;flex-direction:row;justify-content:flex-start;align-items:center;flex-wrap:wrap;border-left:0;border-top:1px solid #52616a;padding:20px 0 0;gap:18px 28px}}
+@media(max-width:480px){.day-celebration,.page-narrow .day-celebration{display:flex;flex-direction:column;align-items:flex-start;padding:26px;gap:22px}.completion-seal,.page-narrow .completion-seal{width:96px;height:96px;align-self:flex-end}.completion-seal>b{font-size:16px}.completion-seal>.icon{width:20px;height:20px;margin:4px 0}.day-celebration h2,.page-narrow .day-celebration h2{font-size:35px;margin-top:10px}.completion-rewards,.page-narrow .completion-rewards{width:100%;gap:18px 25px}.completion-rewards>p{flex-basis:100%}.completion-rewards .btn{margin-top:0}}
+@media(prefers-reduced-motion:reduce){.completion-seal{animation:none}}
 @keyframes stamp-in {
   from { opacity: 0; transform: scale(1.16) rotate(-10deg); }
   to { opacity: 1; transform: scale(1) rotate(-10deg); }
