@@ -1039,9 +1039,10 @@
         const units = section.units.filter(matches);
         if (!units.length) return '';
         const open = filter === 'book' || (last ? last.section === section : i === 0);
+        const completion = Course.sectionProgress(course, todayKey(), section.units.map(u => u.n));
         return `<details class="sec"${open ? ' open' : ''}>
-          <summary><span class="sec-index">${String(i + 1).padStart(2, '0')}</span><span class="sec-t"><span lang="en">${esc(section.en)}</span><small>${esc(section.ru)}</small></span>
-            <span class="sec-range" aria-label="Юниты ${section.units[0].n}–${section.units[section.units.length - 1].n}">${String(section.units[0].n).padStart(2, '0')}–${String(section.units[section.units.length - 1].n).padStart(2, '0')}</span>${icon('chevron')}</summary>
+          <summary><span class="sec-index">${String(i + 1).padStart(2, '0')}</span><span class="sec-t"><span lang="en">${esc(section.en)}</span><small>${esc(section.ru)} <span class="sec-range">· юниты ${String(section.units[0].n).padStart(2, '0')}–${String(section.units[section.units.length - 1].n).padStart(2, '0')}</span></small></span>
+            <span class="sec-progress${completion.remaining === 0 ? ' is-complete' : ''}" aria-label="Закрыто ${completion.done} из ${completion.total} юнитов. Осталось ${completion.remaining}."><span><b>${completion.done} / ${completion.total}</b> закрыто</span><small>${completion.remaining ? `Осталось ${completion.remaining}` : 'Все закрыты'}</small><span class="sec-meter" aria-hidden="true"><span style="width:${completion.pct}%"></span></span></span>${icon('chevron')}</summary>
           <div class="ulist">${units.map(unitRow).join('')}</div></details>`;
       }).join('');
     }

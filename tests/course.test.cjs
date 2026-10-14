@@ -53,3 +53,16 @@ test('the next-day plan follows five study days and two review days without chan
  assert.deepEqual(C.planAfter(course,'2026-10-17'),{day:'2026-10-18',kind:'review',unit:null});
  assert.deepEqual(C.planAfter(course,'2026-10-18'),{day:'2026-10-19',kind:'unit',unit:38});assert.equal(Object.keys(course.closed).length,2);
 });
+test('section completion includes earlier units when the course starts midway through a section',()=>{
+ const course=C.normalize({closed:{'2026-10-12':36,'2026-10-13':37}});
+ const modals=[26,27,28,29,30,31,32,33,34,35,36,37];
+ assert.deepEqual(C.sectionProgress(course,'2026-10-14',modals),{done:2,total:12,remaining:10,pct:17});
+ assert.deepEqual(C.sectionProgress(course,'2026-10-14',[1,2,3,4,5,6]),{done:0,total:6,remaining:6,pct:0});
+ assert.deepEqual(course.closed,{'2026-10-12':36,'2026-10-13':37});
+});
+test('section completion excludes future claims and counts a fully closed section once per unit',()=>{
+ const course=C.normalize({closed:{'2026-10-12':36,'2026-10-13':37,'2026-10-15':38}});
+ assert.deepEqual(C.sectionProgress(course,'2026-10-14',[36,37]),{done:2,total:2,remaining:0,pct:100});
+ assert.deepEqual(C.sectionProgress(course,'2026-10-14',[38,39]),{done:0,total:2,remaining:2,pct:0});
+ assert.deepEqual(C.sectionProgress(course,'2026-10-15',[38,39]),{done:1,total:2,remaining:1,pct:50});
+});

@@ -673,9 +673,46 @@ kbd {
 }
 
 .sec-range {
-  flex: none;
-  font: 11px ui-monospace,monospace;
+  display: inline-block;
+  font-size: 11px;
   color: var(--muted);
+}
+
+.sec-progress {
+  flex: none;
+  min-width: 92px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.sec-progress b {
+  color: var(--text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sec-progress small {
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.sec-meter {
+  display: block;
+  height: 2px;
+  margin-top: 7px;
+  background: var(--line);
+}
+
+.sec-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.sec-progress.is-complete b,
+.sec-progress.is-complete small {
+  color: var(--accent);
 }
 
 .sec summary>.icon {
@@ -1785,6 +1822,16 @@ audio {
     font-size: 11px;
   }
   .sec-range {
+    font-size: 10px;
+  }
+  .sec-progress {
+    min-width: 80px;
+    font-size: 10px;
+  }
+  .sec-progress b {
+    font-size: 12px;
+  }
+  .sec-progress small {
     font-size: 10px;
   }
   .sec summary>.icon {
