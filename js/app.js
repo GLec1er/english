@@ -29,6 +29,7 @@
     play: 'M8 4l12 8-12 8z',
     volume: 'M4 9h4l5-5v16l-5-5H4zM17 8a7 7 0 0 1 0 8M20 5a11 11 0 0 1 0 14',
     slow: 'M5 14a7 7 0 0 1 14 0M5 14h14v5H5zM8 19v2M16 19v2M19 14h2',
+    lock: 'M7 10V7a5 5 0 0 1 10 0v3M5 10h14v11H5zM12 14v3',
     save: 'M4 3h14l3 3v15H4zM8 3v6h9V3M8 21v-8h9v8',
     upload: 'M12 16V3M7 8l5-5 5 5M4 15v6h16v-6',
     mix: 'M4 5h3c5 0 5 14 10 14h3M16 15l4 4-4 3M4 19h3c2 0 3-2 4-4M13 9c1-2 2-4 4-4h3M16 2l4 3-4 4',
@@ -86,13 +87,15 @@
     Store.set('progress', progress);
   }
 
-  const book = Store.get('book', {});
+  const storedBook = Store.get('book', {});
+  const book = storedBook && typeof storedBook === 'object' && !Array.isArray(storedBook) ? storedBook : {};
   const Study = window.EGIUStudy;
   const activity = Study.normalize(Store.get('activity', []));
   const storedPlan = Store.get('dailyPlan', {});
   const dailyPlan = storedPlan && typeof storedPlan === 'object' && !Array.isArray(storedPlan) ? storedPlan : {};
   const todayKey = () => Study.dateKey(new Date());
   const Steps = window.EGIUSteps, Course = window.EGIUCourse;
+  const bookReady = n => Course.bookReady(book,n);
   let steps = Steps.normalize(Store.get('steps', {}));
   const storedCourse = Store.get('course', null);
   let course = Course.normalize(storedCourse);
@@ -132,7 +135,7 @@
     return club.goals[day];
   }
   function closeGoal(unit) {
-    if (Weekly.status(weekly,todayKey()).blocked) return;
+    if (!bookReady(unit) || Weekly.status(weekly,todayKey()).blocked) return;
     const goal = club.goals[todayKey()];
     if (!goal) return;
     course = Course.close(course, todayKey(), unit, Exam.canClose(exams, unit, unitCompletion(D.units[unit]).complete), goal.unit);
@@ -654,6 +657,7 @@
   document.addEventListener('keydown', (e) => keyHandler && keyHandler(e));
 
   function session({ title, back, items, onDone, context = {} }) {
+    if(!requireBook(items.map(it=>it.ref&&it.ref.u),back,()=>session({title,back,items,onDone,context})))return;
     if(context.kind==='unit'&&!Weekly.canStart(weekly,course,todayKey(),context.unit))return weeklyUI.blockedPage();
     let pos = 0, ctl = {}, answered = false, ended = false, reward = null;
     const tracked = context.kind === 'unit' && context.unit && context.mode;
@@ -838,7 +842,7 @@
     const done = activity.find((e) => e.day === day && ['unit', 'writing'].includes(e.kind));
     if (done) return D.units[done.units[0]];
     const learned = new Set(activity.filter((e) => ['unit', 'writing'].includes(e.kind)).flatMap((e) => e.units));
-    const inBook = D.list.find((u) => book[u.n] && !learned.has(u.n));
+    const inBook = D.list.find((u) => bookReady(u.n) && !learned.has(u.n));
     if (inBook) return inBook;
     const latest = activity.slice().reverse().find((e) => ['unit', 'writing'].includes(e.kind));
     return latest ? D.units[latest.units[0] + 1] || D.units[145] : D.units[Store.get('last', 1)] || D.list[0];
@@ -860,7 +864,7 @@
       <p>${ledger.weeks.length ? `${ledger.weeks.length} ${plural(ledger.weeks.length, 'недельная печать', 'недельные печати', 'недельных печатей')} в коллекции.` : 'Каждая полностью закрытая неделя добавляет новую печать.'}</p></section>`;
   }
   function goalList(goal, state) {
-    return `<ol class="goal-list" aria-label="Занятия на сегодня">${goal.required.map((t) => {
+    return `<ol class="goal-list" aria-label="Занятия на сегодня"><li><a class="goal-book ${bookReady(goal.unit)?'is-complete':''}" href="#/u/${goal.unit}"><span class="goal-check" aria-hidden="true">${icon(bookReady(goal.unit)?'check':'book')}</span><span>Сначала — книга</span><small>${bookReady(goal.unit)?'пройдено':'отметить'}</small></a></li>${goal.required.map((t) => {
       const s = modeStatus(D.units[goal.unit], t);
       return `<li><a class="${s.complete ? 'is-complete' : ''}" href="#/u/${goal.unit}/${t}"><span class="goal-check" aria-hidden="true">${s.complete ? icon('check') : ''}</span><span>${TYPES[t].name}</span><small>${s.complete ? 'готово' : s.done ? s.pct + '%' : s.done + '/' + s.total}</small></a></li>`;
     }).join('')}<li><a class="${Exam.status(exams, goal.unit).passed ? 'is-complete' : ''}" href="#/u/${goal.unit}/exam"><span class="goal-check" aria-hidden="true">${Exam.status(exams, goal.unit).passed ? icon('check') : ''}</span><span>Итоговый экзамен</span><small>${Exam.status(exams, goal.unit).passed ? 'сдан' : unitCompletion(D.units[goal.unit]).complete ? 'открыт' : 'после упражнений'}</small></a></li></ol>`;
@@ -917,7 +921,7 @@
         <div class="goal-heading"><b>${state.completed.filter((t) => goal.required.includes(t)).length} / ${goal.required.length} упражнений</b><span>+20 XP за день</span></div>
         ${goalList(goal, state)}
         <p class="plan-help">Все упражнения → экзамен от 80% → закрытый день. Один юнит в будний день.</p>
-        ${allComplete && !exam.passed && !state.done ? `<a class="btn primary" href="#/u/${u.n}/exam">${exam.draft ? 'Продолжить экзамен' : 'Сдать экзамен'} ${icon('arrow')}</a>` : canClaim ? '<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>' : `<a class="btn primary today-start" href="#/u/${u.n}${next && !state.done ? '/' + next : ''}">${state.done ? 'Продолжить практику' : next ? 'Следующее занятие' : 'Открыть юнит'} ${icon('arrow')}</a>`}`}
+        ${!bookReady(u.n) ? `<a class="btn primary" href="#/u/${u.n}">Сначала — отметить книгу ${icon('book')}</a>` : allComplete && !exam.passed && !state.done ? `<a class="btn primary" href="#/u/${u.n}/exam">${exam.draft ? 'Продолжить экзамен' : 'Сдать экзамен'} ${icon('arrow')}</a>` : canClaim ? '<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>' : `<a class="btn primary today-start" href="#/u/${u.n}${next && !state.done ? '/' + next : ''}">${state.done ? 'Продолжить практику' : next ? 'Следующее занятие' : 'Открыть юнит'} ${icon('arrow')}</a>`}`}
     </div>`+(state.done?afterDayPlan(day):'');
   }
   function afterDayPlan(day){
@@ -999,13 +1003,33 @@
       items: shuffle(items), context: { kind: 'review', week } });
   }
 
+  function bookCheckpoint(u) {
+    const ready=bookReady(u.n);
+    return `<section class="book-checkpoint${ready?' is-ready':''}" aria-label="Первый шаг: книга">
+      <span class="book-emblem" aria-hidden="true">${icon(ready?'check':'book')}</span>
+      <div class="book-copy"><span class="eyebrow">01 / Сначала книга</span><h2>${ready?'Книга пройдена. Можно практиковаться.':`Сначала пройди Unit ${u.n} в книге`}</h2><p id="book-status">${ready?'Отметка сохранена. Упражнения, экзамен и практика в контексте открыты.':'Прочитай правило и выполни задания у Мёрфи. Затем подтверди этот шаг — откроется практика.'}</p></div>
+      <label class="book-confirm"><input type="checkbox" aria-label="Unit ${u.n} пройден в книге" aria-describedby="book-status"${ready?' checked':''}><span class="book-confirm-face"><span class="book-confirm-icon" aria-hidden="true">${icon(ready?'check':'book')}</span><span><b>${ready?'Пройдено в книге':'Книга пройдена — открыть практику'}</b><small>${ready?'Нажми, чтобы снять отметку':'Подтвердить первый шаг'}</small></span></span></label>
+    </section>`;
+  }
+  function wireBookCheckpoint(u,onChange=()=>{route();const input=$('.book-confirm input');if(input)input.focus();}) {
+    const input=$('.book-confirm input');if(!input)return;
+    input.onchange=()=>{if(input.checked)book[u.n]=true;else delete book[u.n];Store.set('book',book);onChange();};
+  }
+  function requireBook(units,back='#/',resume=()=>go(back)) {
+    const missing=[...new Set(units.filter(n=>D.units[n]&&!bookReady(n)))];
+    if(!missing.length)return true;
+    const first=D.units[missing[0]];
+    keyHandler=null;
+    app.innerHTML=`<div class="book-gate"><span class="eyebrow">Подготовка к практике</span><h1>Сначала отметь книгу</h1><p class="page-intro">Для этого занятия нужно подтвердить пройденные в книге юниты. Сохранённые ответы и результаты останутся на месте.</p>${bookCheckpoint(first)}${missing.length>1?`<p class="muted">Ещё ждут подтверждения: ${missing.slice(1).map(n=>`<a href="#/u/${n}">Unit ${n}</a>`).join(', ')}.</p>`:''}<a class="btn ghost" href="${esc(back)}">Вернуться без начала занятия</a></div>`;
+    wireBookCheckpoint(first,()=>{if(requireBook(units,back,resume))resume();});
+    return false;
+  }
   function unitRow(u) {
-    const state = unitCompletion(u), pct = state.pct;
-    const hasProgress = state.done > 0;
-    return `<a class="urow" href="#/u/${u.n}">
-      <span class="unum">${String(u.n).padStart(2, '0')}</span><span class="utitle" lang="en">${esc(u.title)}</span>
-      ${book[u.n] ? `<span class="bk" role="img" aria-label="Пройдено в книге" title="Пройдено в книге">${icon('check')}</span>` : ''}
-      ${hasProgress ? `<span class="upct" title="Выполнено ${state.done} из ${state.total} заданий">${pct}%</span>` : ''}${bar(pct)}</a>`;
+    const state=unitCompletion(u),closed=Course.closedUnits(course,todayKey()).has(u.n),ready=bookReady(u.n);
+    const status=closed?'Юнит закрыт':!ready?'Сначала книга':state.complete?(Exam.status(exams,u.n).passed?'Готов к зачёту':'Нужен экзамен'):state.done?'В процессе':'К практике';
+    return `<a class="urow${closed?' is-closed':state.done?' is-started':''}" href="#/u/${u.n}">
+      <span class="unum">${String(u.n).padStart(2,'0')}</span><span class="urow-copy"><span class="utitle" lang="en">${esc(u.title)}</span><span class="urow-detail">${closed?'Зачтён в курсе':state.done?`${state.done} / ${state.total} заданий выполнено`:ready?'Книга пройдена · упражнения открыты':'Практика откроется после книги'}</span></span>
+      <span class="unit-state${closed?' is-closed':''}">${icon(closed?'check':ready?'book':'lock')}<span>${status}${!closed&&state.done?` · ${state.pct}%`:''}</span></span>${!closed&&state.done?bar(state.pct):''}</a>`;
   }
 
   function home() {
@@ -1013,7 +1037,7 @@
     const last = D.units[Store.get('last', 0)];
     const current = last || D.list[0];
     const started = D.list.filter((u) => unitCompletion(u).done > 0).length;
-    const inBook = D.list.filter((u) => book[u.n]).length;
+    const inBook = D.list.filter((u) => bookReady(u.n)).length;
     let filter = Store.get('homeFilter', 'all') === 'book' ? 'book' : 'all';
     app.innerHTML = `
       <section class="hero" aria-labelledby="home-title">
@@ -1059,7 +1083,7 @@
         b.classList.toggle('active', active);
         b.setAttribute('aria-pressed', String(active));
       });
-      const matches = (u) => (!q || String(u.n) === q || u.title.toLowerCase().includes(q) || u.section.en.toLowerCase().includes(q) || u.section.ru.toLowerCase().includes(q)) && (filter !== 'book' || book[u.n]);
+      const matches = (u) => (!q || String(u.n) === q || u.title.toLowerCase().includes(q) || u.section.en.toLowerCase().includes(q) || u.section.ru.toLowerCase().includes(q)) && (filter !== 'book' || bookReady(u.n));
       const hits = D.list.filter(matches);
       note.textContent = q ? `Найдено юнитов: ${hits.length}` : filter === 'book' ? `Пройдено в книге: ${hits.length} из ${D.list.length}` : `${D.sections.length} разделов · ${D.list.length} юнитов`;
       if (!hits.length) {
@@ -1072,9 +1096,9 @@
         if (!units.length) return '';
         const open = filter === 'book' || (last ? last.section === section : i === 0);
         const completion = Course.sectionProgress(course, todayKey(), section.units.map(u => u.n));
-        return `<details class="sec"${open ? ' open' : ''}>
+        return `<details class="sec${completion.done?' has-progress':''}${!completion.remaining?' is-complete':''}"${open ? ' open' : ''}>
           <summary><span class="sec-index">${String(i + 1).padStart(2, '0')}</span><span class="sec-t"><span lang="en">${esc(section.en)}</span><small>${esc(section.ru)} <span class="sec-range">· юниты ${String(section.units[0].n).padStart(2, '0')}–${String(section.units[section.units.length - 1].n).padStart(2, '0')}</span></small></span>
-            <span class="sec-progress${completion.remaining === 0 ? ' is-complete' : ''}" aria-label="Закрыто ${completion.done} из ${completion.total} юнитов. Осталось ${completion.remaining}."><span><b>${completion.done} / ${completion.total}</b> закрыто</span><small>${completion.remaining ? `Осталось ${completion.remaining}` : 'Все закрыты'}</small><span class="sec-meter" aria-hidden="true"><span style="width:${completion.pct}%"></span></span></span>${icon('chevron')}</summary>
+            <span class="sec-progress" aria-label="Закрыто ${completion.done} из ${completion.total} юнитов. Осталось ${completion.remaining}."><span class="sec-count"><b>${completion.done}</b><span>из ${completion.total}<small>юнитов закрыто</small></span></span><span class="sec-slots" aria-hidden="true">${section.units.map(item=>`<i class="${Course.closedUnits(course,todayKey()).has(item.n)?'is-filled':''}" title="Unit ${item.n}${Course.closedUnits(course,todayKey()).has(item.n)?' · закрыт':' · ещё не закрыт'}"></i>`).join('')}</span><small>${completion.remaining?`Осталось ${completion.remaining}`:'Раздел полностью закрыт ✓'}</small></span>${icon('chevron')}</summary>
           <div class="ulist">${units.map(unitRow).join('')}</div></details>`;
       }).join('');
     }
@@ -1091,48 +1115,45 @@
     const prev = D.units[u.n - 1], next = D.units[u.n + 1];
     const groups = {};
     unitTypes(u).forEach((t) => (groups[TYPES[t].group] = groups[TYPES[t].group] || []).push(t));
-    const completion = unitCompletion(u), claimed = Course.closedUnits(course, todayKey()).has(u.n);
+    const completion = unitCompletion(u), claimed = Course.closedUnits(course, todayKey()).has(u.n), ready=bookReady(u.n);
+    const closedDay=Object.entries(course.closed).find(([day,n])=>n===u.n&&day<=todayKey())?.[0];
     app.innerHTML = `
       <div class="crumbs"><a href="#/">Оглавление</a> / <span lang="en">${esc(u.section.en)}</span></div>
       ${course.closed[todayKey()]===u.n?dayCelebration():''}
       <div class="unit-heading"><span class="unit-number"><small>UNIT</small>${String(u.n).padStart(2, '0')}</span><h1 lang="en">${esc(u.title)}</h1></div>
+      ${claimed?`<section class="unit-closed-banner" aria-label="Юнит закрыт"><span class="unit-closed-seal" aria-hidden="true">${icon('check')}</span><div><span class="eyebrow">The Study Club / Completed</span><h2>Unit ${u.n} закрыт</h2><p>Зачтён ${dateLabel(closedDay,{day:'numeric',month:'long'})}. Можно возвращаться к упражнениям для повторения.</p></div></section>`:''}
+      ${bookCheckpoint(u)}
       <div class="unit-layout">
         <aside class="unit-annotation" aria-label="Правило и отметка книги">
           ${u.tip ? `<div class="tip"><span class="eyebrow">Коротко о правиле</span>${esc(u.tip)}</div>` : ''}
-          <label class="bookdone"><input type="checkbox"${book[u.n] ? ' checked' : ''}> Пройдено в книге</label>
-          <p class="muted small">Сначала прочитай правило и сделай задания в книге. Здесь — дополнительная практика.</p>
         </aside>
-        <section class="unit-practice" aria-labelledby="practice-title">
+        <section class="unit-practice${ready?'':' is-locked'}" aria-labelledby="practice-title">
           <div class="practice-head"><h2 id="practice-title">Закрепить тему</h2><span class="unit-completion">${completion.pct}% выполнено <small>${completion.done} / ${completion.total} заданий</small></span></div>
           <p class="completion-help">Выполнение сохраняется после каждого ответа. Правильность показывается отдельно.</p>
-          ${goal && goal.unit === u.n ? `<section class="unit-goal" aria-label="Дневной набор"><div class="goal-heading"><b>${state.done ? 'День закрыт' : `Упражнения · ${state.completed.length} / ${goal.required.length}`}</b><a href="#/calendar">Дневник →</a></div>${goalList(goal, state)}${completion.complete && Exam.status(exams, u.n).passed && !state.done && !claimed ? '<button class="btn primary small claim-unit" type="button">Закрыть юнит сегодня</button>' : ''}</section>` : `<div class="unit-goal-note"><span>${claimed ? 'Юнит уже закрыт. Можно повторять.' : course.closed[todayKey()] ? `Сегодня закрыт Unit ${course.closed[todayKey()]}. Здесь — свободная практика.` : goal ? `Свободная практика. Цель на сегодня — Unit ${goal.unit}.` : 'Свободная практика выходного. Все ответы сохраняются.'}</span>${goal && !state.done && !claimed ? '<button class="btn small make-today-unit" type="button">Выбрать на сегодня</button>' : ''}</div>`}
+          ${!ready?`<div class="practice-lock-note">${icon('lock')}<div><b>Практика пока закрыта</b><p>Подтверди первый шаг в карточке книги выше. После этого можно начинать с любого упражнения.</p></div></div>`:goal && goal.unit === u.n ? `<section class="unit-goal" aria-label="Дневной набор"><div class="goal-heading"><b>${state.done ? 'День закрыт' : `Упражнения · ${state.completed.length} / ${goal.required.length}`}</b><a href="#/calendar">Дневник →</a></div>${goalList(goal, state)}${completion.complete && Exam.status(exams, u.n).passed && !state.done && !claimed ? '<button class="btn primary small claim-unit" type="button">Закрыть юнит сегодня</button>' : ''}</section>` : `<div class="unit-goal-note"><span>${claimed ? 'Юнит уже закрыт. Можно повторять.' : course.closed[todayKey()] ? `Сегодня закрыт Unit ${course.closed[todayKey()]}. Здесь — свободная практика.` : goal ? `Свободная практика. Цель на сегодня — Unit ${goal.unit}.` : 'Свободная практика выходного. Все ответы сохраняются.'}</span>${goal && !state.done && !claimed ? '<button class="btn small make-today-unit" type="button">Выбрать на сегодня</button>' : ''}</div>`}
           ${Object.keys(GROUPS).filter((g) => groups[g]).map((g) => `
             <h3 class="grp">${GROUPS[g]}</h3>
             <div class="grid">${groups[g].map((t) => {
               const p = getProg(u.n, t), n = available(u, t), s = modeStatus(u, t);
-              return `<a class="excard" href="#/u/${u.n}/${t}">
+              return `<${ready?'a':'article'} class="excard${ready?'':' is-locked'}"${ready?` href="#/u/${u.n}/${t}"`:''}>
                 <span class="ico">${icon(TYPES[t].icon)}</span><span class="nm">${TYPES[t].name}</span>
                 <span class="ds">${TYPES[t].desc}${t === 'write' ? '' : ` · ${n} ${plural(n, 'задание', 'задания', 'заданий')}`}</span>
                 <span class="sc ${s.complete ? 'hi' : ''}" title="Процент выполнения">${s.complete ? '✓ ' : ''}${s.pct}%</span>
-                <span class="exercise-progress"><b>${s.done} / ${s.total} выполнено</b><span>${s.complete ? 'Повторить' : s.done ? 'Продолжить' : 'Начать'}</span></span>
+                <span class="exercise-progress"><b>${s.done} / ${s.total} выполнено</b><span>${!ready?'После книги':s.complete ? 'Повторить' : s.done ? 'Продолжить' : 'Начать'}</span></span>
                 <span class="exercise-meter" aria-hidden="true"><i style="width:${s.pct}%"></i></span>
                 ${p && t !== 'write' ? `<span class="exercise-accuracy">Лучший результат: ${p.best}%</span>` : ''}
-                ${icon('arrow').replace('class="icon"', 'class="icon ex-arrow"')}
-              </a>`;
+                ${icon(ready?'arrow':'lock').replace('class="icon"', 'class="icon ex-arrow"')}
+              </${ready?'a':'article'}>`;
             }).join('')}</div>`).join('')}
           ${examCard(u)}
-          ${learnUI.unitCard(u.n)}
+          ${ready?learnUI.unitCard(u.n):'<section class="card context-unit-card is-locked"><span class="eyebrow">Своя речь</span><h3>Применить тему в контексте</h3><p>Чтение, аудирование и письмо откроются после отметки книги.</p></section>'}
         </section>
       </div>
       <div class="unav">
         ${prev ? `<a class="btn ghost" href="#/u/${prev.n}">← Unit ${prev.n}</a>` : '<span></span>'}
         ${next ? `<a class="btn ghost" href="#/u/${next.n}">Unit ${next.n} →</a>` : ''}
       </div>`;
-    $('.bookdone input').onchange = (e) => {
-      if (e.target.checked) book[u.n] = true;
-      else delete book[u.n];
-      Store.set('book', book);
-    };
+    wireBookCheckpoint(u);
     const makeToday = $('.make-today-unit');
     if (makeToday) makeToday.onclick = () => {
       club.goals[todayKey()] = { unit: u.n, required: unitTypes(u) };
@@ -1164,8 +1185,10 @@
   function runTopics() {
     let draft=learning.sessions.topics;
     if(draft&&draft.items.some(it=>!Weekly.canStart(weekly,course,todayKey(),it.ref.u)))return weeklyUI.blockedPage();
+    if(draft&&!requireBook(draft.items.map(it=>it.ref.u),'#/retention',runTopics))return;
     if(!draft){
       const due=Learning.dueTopics(learning,todayKey()).filter(r=>Weekly.canStart(weekly,course,todayKey(),r.unit)).slice(0,3);if(!due.length)return Weekly.status(weekly,todayKey()).blocked?weeklyUI.blockedPage():go('#/retention');
+      if(!requireBook(due.map(r=>r.unit),'#/retention',runTopics))return;
       const items=shuffle(due.flatMap(r=>shuffle(Exam.select(transferPool(r.unit,nextBank(r.unit).form))).slice(0,6)));
       learning=Learning.startSession(learning,'topics',items,Date.now()+'-topics',todayKey());saveLearning();draft=learning.sessions.topics;
       due.forEach(r=>{const it=draft.items.find(it=>it.ref.u===r.unit);learning=Learning.useForm(learning,r.unit,it.ref.v,draft.id);});saveLearning();
@@ -1186,11 +1209,11 @@
   }
   function correctText(it) { return it.ref.k === 'gap' ? it.data.full : it.data.a[0]; }
   function examCard(u) {
-    const ready = unitCompletion(u).complete, status = Exam.status(exams,u.n);
+    const ready = bookReady(u.n)&&unitCompletion(u).complete, status = Exam.status(exams,u.n);
     return `<section class="exam-card ${ready ? 'is-ready' : ''}" aria-label="Итоговый экзамен">
       <div class="exam-seal" aria-hidden="true" lang="en">Study<br>Club<span>${status.passed ? '✓' : 'E'}</span></div>
       <div><span class="eyebrow" lang="en">Unit ${u.n} / Final examination</span><h3>${status.passed ? 'Экзамен сдан' : 'Итоговый экзамен'}</h3>
-        <p>${ready ? '13 разных примеров · смешанные форматы · от 80% для сдачи. Разбор после последнего ответа.' : 'Откроется после всех упражнений юнита. Сдача экзамена закрывает выбранный юнит и будний день.'}</p>
+        <p>${ready ? '13 разных примеров · смешанные форматы · от 80% для сдачи. Разбор после последнего ответа.' : bookReady(u.n)?'Откроется после всех упражнений юнита. Сдача экзамена закрывает выбранный юнит и будний день.':'Сначала подтверди книгу, затем выполни упражнения. После этого откроется итоговая проверка.'}</p>
         ${status.best !== null ? `<p class="exam-best">Лучший результат: ${status.best}% · попыток ${status.attempts}</p>` : ''}
         ${ready ? `<a class="btn primary small" href="#/u/${u.n}/exam">${status.draft ? `Продолжить · ${status.answered}/13` : status.last ? 'Результат и пересдача' : 'Открыть экзамен'} ${icon('arrow')}</a>` : `<span class="muted small">Упражнения: ${unitCompletion(u).done} / ${unitCompletion(u).total}</span>`}
       </div></section>`;
@@ -1285,11 +1308,13 @@
   function wireClaim() {
     const claim=$('.claim-unit');
     if(claim)claim.onclick=()=>{const goal=ensureGoal();if(!goal || !Exam.canClose(exams,goal.unit,unitCompletion(D.units[goal.unit]).complete))return;
+      if(!requireBook([goal.unit],location.hash,()=>{route();}))return;
       const reward=recordActivity({kind:'claim',unit:goal.unit,title:`Unit ${goal.unit} · Закрытие юнита`});
       toast(reward.rank?`Юнит закрыт · новый ранг ${reward.rank.en}`:`Юнит закрыт · +${reward.xp} XP`);route();};
   }
 
   function startUnit(u, t) {
+    if(!bookReady(u.n))return unitPage(u);
     if(!Weekly.canStart(weekly,course,todayKey(),u.n))return weeklyUI.blockedPage();
     if (!TYPES[t] || !available(u, t)) return go('#/u/' + u.n);
     ensureGoal();
@@ -1349,7 +1374,7 @@
   }
 
   function mixPage() {
-    const bookUnits = D.list.filter((u) => book[u.n]);
+    const bookUnits = D.list.filter((u) => bookReady(u.n));
     const mixTypes = ['mc', 'fill', 'order', 'err', 'tr', 'lgap', 'dict', 'speak'];
     const sel = Store.get('mixTypes', ['mc', 'fill']);
     app.innerHTML = `<div class="page-narrow">
@@ -1358,7 +1383,7 @@
       ${weeklyUI.banner()}
       ${Weekly.status(weekly,todayKey()).blocked?'<p class="muted small">В миксе доступны только закрытые юниты, пока не завершена работа над ошибками.</p>':''}
       <div class="card form">
-        <label class="row"><input type="checkbox" class="onlybook"${bookUnits.length ? ' checked' : ' disabled'}> Только юниты, отмеченные «Пройдено в книге» (${bookUnits.length})</label>
+        <p class="mix-book-note">${icon('book')} Доступно после книги: <b>${bookUnits.length} ${plural(bookUnits.length,'юнит','юнита','юнитов')}</b>. <a href="#/">Отметить пройденные →</a></p>
         <h2>Разделы <button class="btn link small all" type="button">все</button> <button class="btn link small none" type="button">ни одного</button></h2>
         <div class="checks secs">${D.sections.map((s, i) => `<label><input type="checkbox" value="${i}" checked> ${esc(s.en)}</label>`).join('')}</div>
         <h2>Типы заданий</h2>
@@ -1376,10 +1401,11 @@
       saveSettings();
       Store.set('mixTypes', types);
       let units = [].concat(...secs.map((s) => s.units));
-      if ($('.onlybook').checked) units = units.filter((u) => book[u.n]);
+      units = units.filter((u) => bookReady(u.n));
       units=units.filter(u=>Weekly.canStart(weekly,course,todayKey(),u.n));
       if(!units.length&&secs.length&&Weekly.status(weekly,todayKey()).blocked){toast('В выбранных темах нет закрытых юнитов. Сначала заверши ошибки недели.');return;}
-      if (!units.length || !types.length) { toast('Выберите хотя бы одну тему и тип задания'); return; }
+      if(!secs.length||!types.length){toast('Выбери хотя бы один раздел и тип задания.');return;}
+      if(!units.length){toast('В выбранных разделах нет отметок книги. Сначала подтверди пройденные юниты.');return;}
       const pool = [];
       units.forEach((u) => types.forEach((t) => { if (available(u, t)) pool.push([u, t]); }));
       if (!pool.length) { toast('Нет подходящих заданий'); return; }
@@ -1583,6 +1609,7 @@
     if (p[0] === 'u' && D.units[p[1]]) {
       const u = D.units[p[1]];
       if(!Weekly.canStart(weekly,course,todayKey(),u.n))weeklyUI.blockedPage();
+      else if(p[2]&&!bookReady(u.n))unitPage(u);
       else if (p[2] === 'exam') examPage(u);
       else if (p[2] === 'context') learnUI.contextPage(u.n);
       else if (p[2]) startUnit(u, p[2]);
@@ -1616,7 +1643,7 @@
     record:(row,it,r,event)=>recordActivity({kind:'practice',session:'weekly:'+Study.weekStart(row.day)+':'+Weekly.key(row.ref),title:`Unit ${row.ref.u} · Ошибки недели`},[{...r,item:{ref:row.ref}}]).id,
     correctActivity:id=>{const e=activity.find(e=>e.id===id);if(e){e.correct=1;Store.set('activity',activity);}},
     originalAnswer:(item,r,event)=>{mistakes=Review.record(mistakes,item.ref,{...r,mode:item.t},todayKey(),event);Store.set('mistakes',mistakes);updateNav();},
-    undoOriginal:(item,event)=>{mistakes=Review.undo(mistakes,item.ref,event);Store.set('mistakes',mistakes);updateNav();},appeal:attachAnswerDispute,setKeys:fn=>{keyHandler=fn;},dayCelebration});
+    undoOriginal:(item,event)=>{mistakes=Review.undo(mistakes,item.ref,event);Store.set('mistakes',mistakes);updateNav();},appeal:attachAnswerDispute,setKeys:fn=>{keyHandler=fn;},dayCelebration,beforePractice:n=>requireBook([n],location.hash,()=>route())});
   window.addEventListener('hashchange', route);
   route();
 })();

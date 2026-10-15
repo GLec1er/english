@@ -19,6 +19,7 @@
   }
   function run(week,k){
    let row=getState().weeks[week]&&getState().weeks[week][k];if(!row)return page(week);
+   if(!W.done(row)&&host.beforePractice&&!host.beforePractice(row.ref.u))return;
    const original=source(row);if(!original){app.innerHTML='<div class="page-narrow"><h1>Задание недоступно</h1><p>Сохрани прогресс в настройках: исходный пример нужно восстановить перед зачётом.</p><a href="#/settings">Настройки</a></div>';return;}
    const note=answerNote(original,{ok:false}),drills=P.drills(original);
    const heading=()=>`<div class="crumbs"><a href="${path(week)}">Ошибки недели</a> / Unit ${row.ref.u}</div><h1 class="weekly-run-title">${esc(units[row.ref.u].title)}</h1><p class="weekly-progress">${rowSteps(row)} / 4 шагов · сохраняется сразу</p>`;

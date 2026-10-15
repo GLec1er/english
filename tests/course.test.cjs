@@ -66,3 +66,27 @@ test('section completion excludes future claims and counts a fully closed sectio
  assert.deepEqual(C.sectionProgress(course,'2026-10-14',[38,39]),{done:0,total:2,remaining:2,pct:0});
  assert.deepEqual(C.sectionProgress(course,'2026-10-15',[38,39]),{done:1,total:2,remaining:1,pct:50});
 });
+test('practice requires an explicit saved book confirmation for that unit',()=>{
+ assert.equal(typeof C.bookReady,'function','book prerequisite is missing');
+ assert.equal(C.bookReady({},36),false);
+ assert.equal(C.bookReady({35:true},36),false);
+ assert.equal(C.bookReady({36:true},36),true);
+ assert.equal(C.bookReady({36:false},36),false);
+ for(const value of ['true',1,{},[]])assert.equal(C.bookReady({36:value},36),false);
+});
+test('book confirmation accepts course boundaries and never grants access from malformed imports',()=>{
+ assert.equal(typeof C.bookReady,'function','book prerequisite is missing');
+ assert.equal(C.bookReady({1:true,145:true},1),true);
+ assert.equal(C.bookReady({1:true,145:true},145),true);
+ for(const n of [0,146,-1,36.5,'36',null])assert.equal(C.bookReady({[n]:true},n),false);
+ for(const book of [null,undefined,true,[],Object.create({36:true})])assert.equal(C.bookReady(book,36),false);
+});
+test('withdrawing book confirmation locks practice without altering saved course completion',()=>{
+ assert.equal(typeof C.bookReady,'function','book prerequisite is missing');
+ const book={36:true},course=C.normalize({closed:{'2026-10-12':36}}),snapshot=JSON.stringify(course);
+ assert.equal(C.bookReady(book,36),true);
+ delete book[36];
+ assert.equal(C.bookReady(book,36),false);
+ assert.equal(C.rank(course,'2026-10-15').done,1);
+ assert.equal(JSON.stringify(course),snapshot);
+});
