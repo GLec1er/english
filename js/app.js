@@ -1096,7 +1096,7 @@
         if (!units.length) return '';
         const open = filter === 'book' || (last ? last.section === section : i === 0);
         const completion = Course.sectionProgress(course, todayKey(), section.units.map(u => u.n));
-        return `<details class="sec${completion.done?' has-progress':''}${!completion.remaining?' is-complete':''}"${open ? ' open' : ''}>
+        return `<details class="sec${completion.done?' has-progress':''}${!completion.remaining?' is-complete':''}" style="--section-progress:${completion.pct}"${open ? ' open' : ''}>
           <summary><span class="sec-index">${String(i + 1).padStart(2, '0')}</span><span class="sec-t"><span lang="en">${esc(section.en)}</span><small>${esc(section.ru)} <span class="sec-range">· юниты ${String(section.units[0].n).padStart(2, '0')}–${String(section.units[section.units.length - 1].n).padStart(2, '0')}</span></small></span>
             <span class="sec-progress" aria-label="Закрыто ${completion.done} из ${completion.total} юнитов. Осталось ${completion.remaining}."><span class="sec-count"><b>${completion.done}</b><span>из ${completion.total}<small>юнитов закрыто</small></span></span><span class="sec-slots" aria-hidden="true">${section.units.map(item=>`<i class="${Course.closedUnits(course,todayKey()).has(item.n)?'is-filled':''}" title="Unit ${item.n}${Course.closedUnits(course,todayKey()).has(item.n)?' · закрыт':' · ещё не закрыт'}"></i>`).join('')}</span><small>${completion.remaining?`Осталось ${completion.remaining}`:'Раздел полностью закрыт ✓'}</small></span>${icon('chevron')}</summary>
           <div class="ulist">${units.map(unitRow).join('')}</div></details>`;

@@ -2205,19 +2205,21 @@ audio {
 .after-day-plan{margin-top:18px}.after-day-plan h3{font-family:var(--serif);font-size:22px}.after-day-review{border-top:1px solid var(--line);padding-top:12px;margin-top:16px}.after-day-review .actions{flex-wrap:wrap}
 
 /* Course ledger: visible completion and an explicit book prerequisite. */
-.sec-progress {flex:0 0 188px;min-width:0;padding:12px 14px;background:var(--card);border:1px solid var(--line);color:var(--muted)}
+.sec {--section-hue:calc(var(--section-progress,0)*var(--section-progress,0)*.012);--section-ink:hsl(var(--section-hue) 58% 28%);--section-paper:hsl(var(--section-hue) 45% 95%)}
+:root[data-theme="dark"] .sec {--section-ink:hsl(var(--section-hue) 60% 72%);--section-paper:hsl(var(--section-hue) 24% 17%)}
+.sec-progress {flex:0 0 188px;min-width:0;padding:12px 14px;background:var(--section-paper);border:1px solid var(--section-ink);color:var(--muted)}
 .sec-count {display:flex;gap:10px;align-items:center}
-.sec-count>b {font:36px/1 var(--serif);color:var(--text)}
+.sec-count>b {font:36px/1 var(--serif);color:var(--section-ink)}
 .sec-count>span {font-size:13px;line-height:1.3}
 .sec-count small {font-size:10px;margin:2px 0 0}
 .sec-progress>small {font-size:10px;margin-top:8px;line-height:1.4}
 .sec-slots {display:flex;gap:3px;margin-top:11px}
 .sec-slots i {flex:1;height:7px;background:var(--bg);border:1px solid var(--line);border-radius:1px}
-.sec-slots .is-filled {background:var(--good);border-color:var(--good)}
-.sec.has-progress>summary .sec-progress {background:var(--good-soft);border-color:var(--good)}
-.sec.has-progress .sec-count>b {color:var(--good)}
-.sec.has-progress>summary .sec-index {color:var(--good);font-weight:700}
-.sec.is-complete .sec-progress>small {color:var(--good);font-weight:650}
+.sec-slots .is-filled {background:var(--section-ink);border-color:var(--section-ink)}
+.sec.has-progress>summary .sec-progress {background:var(--section-paper);border-color:var(--section-ink)}
+.sec.has-progress .sec-count>b {color:var(--section-ink)}
+.sec.has-progress>summary .sec-index {color:var(--section-ink);font-weight:700}
+.sec.is-complete .sec-progress>small {color:var(--section-ink);font-weight:650}
 .urow {padding:14px 12px;gap:12px;min-height:72px;margin:5px 0;border:1px solid transparent;border-left-width:3px}
 .urow-copy {flex:1;min-width:0}
 .urow .utitle {display:block;font-size:14px;line-height:1.5}
