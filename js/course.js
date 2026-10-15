@@ -40,6 +40,7 @@
     const closed=closedUnits(course,day),total=units.length,done=units.filter(unit=>closed.has(unit)).length;
     return {done,total,remaining:total-done,pct:total?Math.round(done/total*100):0};
   }
-  const api={RANKS,normalize,close,next,rank,closedUnits,planAfter,sectionProgress};
+  const bookReady=(book,unit)=>Number.isInteger(unit)&&unit>=1&&unit<=145&&!!book&&typeof book==='object'&&!Array.isArray(book)&&Object.prototype.hasOwnProperty.call(book,unit)&&book[unit]===true;
+  const api={RANKS,normalize,close,next,rank,closedUnits,planAfter,sectionProgress,bookReady};
   if(typeof module!=='undefined'&&module.exports) module.exports=api;else root.EGIUCourse=api;
 })(typeof window==='undefined'?globalThis:window);
