@@ -90,3 +90,83 @@ test('withdrawing book confirmation locks practice without altering saved course
  assert.equal(C.rank(course,'2026-10-15').done,1);
  assert.equal(JSON.stringify(course),snapshot);
 });
+test('future units require the next course unit; earlier units and closed units stay open',()=>{
+ assert.equal(typeof C.access,'function','sequential access is missing');
+ const c=C.normalize({closed:{'2026-10-12':36,'2026-10-13':37}});
+ assert.equal(C.access(c,'2026-10-15',38).allowed,true);
+ assert.equal(C.access(c,'2026-10-15',36).reason,'review');
+ for(const unit of [1,35])assert.equal(C.access(c,'2026-10-15',unit).reason,'background');
+ for(const unit of [39,42,145]){
+  const a=C.access(c,'2026-10-15',unit);assert.equal(a.allowed,false);assert.equal(a.reason,'sequence');assert.equal(a.required,38);
+ }
+});
+test('the skipped beginning is available for background practice without closing another course unit',()=>{
+ const c=C.normalize({closed:{'2026-10-12':36}}),snapshot=JSON.stringify(c);
+ for(const day of ['2026-10-12','2026-10-15','2026-10-17']){
+  assert.equal(C.access(c,day,1).allowed,true);
+  assert.equal(C.access(c,day,35).reason,'background');
+  assert.deepEqual(C.close(c,day,1,true,1),c);
+ }
+ assert.equal(JSON.stringify(c),snapshot);
+});
+test('a closed day and weekends admit revision but no new unit',()=>{
+ assert.equal(typeof C.access,'function','sequential access is missing');
+ const c=C.normalize({closed:{'2026-10-12':36,'2026-10-13':37}});
+ assert.equal(C.access(c,'2026-10-13',38).reason,'day-complete');
+ assert.equal(C.access(c,'2026-10-13',37).allowed,true);
+ assert.equal(C.access(c,'2026-10-17',38).reason,'weekend');
+ assert.equal(C.access(c,'2026-10-18',36).allowed,true);
+ assert.equal(C.access(c,'2026-10-19',38).allowed,true);
+});
+test('an out-of-order goal cannot close a course day even with completed exercises and exam',()=>{
+ const c=C.normalize(null);
+ assert.deepEqual(C.close(c,'2026-10-15',41,true,41),c);
+ assert.deepEqual(C.close(c,'2026-10-15',1,true,1),c);
+ assert.equal(C.close(c,'2026-10-15',36,true,36).closed['2026-10-15'],36);
+});
+test('existing skipped-unit claims remain recorded but cannot unlock another future unit',()=>{
+ assert.equal(typeof C.access,'function','sequential access is missing');
+ const c=C.normalize({closed:{'2026-10-12':70}}),snapshot=JSON.stringify(c);
+ assert.equal(C.access(c,'2026-10-15',70).reason,'review');
+ assert.equal(C.access(c,'2026-10-15',71).allowed,false);
+ assert.equal(C.access(c,'2026-10-15',71).required,36);
+ assert.equal(JSON.stringify(c),snapshot);
+});
+test('invalid and future course records do not open new lessons',()=>{
+ assert.equal(typeof C.access,'function','sequential access is missing');
+ const c=C.normalize({closed:{'2026-10-19':36}});
+ assert.equal(C.access(c,'2026-10-15',36).allowed,true);
+ assert.equal(C.access(c,'2026-10-15',37).allowed,false);
+ for(const unit of [0,146,'36',NaN])assert.equal(C.access(c,'2026-10-15',unit).allowed,false);
+ assert.equal(C.access(c,'bad',36).allowed,false);
+});
+test('the next section stays locked until every unit in the current section is closed',()=>{
+ let c=C.normalize(null),day='2026-10-12';
+ for(let unit=36;unit<=41;unit++){
+  while(Study.isWeekend(day))day=Study.shift(day,1);
+  assert.equal(C.access(c,day,42).allowed,false);
+  assert.equal(C.access(c,day,42).required,unit);
+  c=C.close(c,day,unit,true,unit);
+  if(unit===41)assert.equal(C.access(c,day,42).reason,'day-complete');
+  day=Study.shift(day,1);
+ }
+ while(Study.isWeekend(day))day=Study.shift(day,1);
+ assert.equal(C.sectionProgress(c,day,[38,39,40,41]).remaining,0);
+ assert.equal(C.access(c,day,42).allowed,true);
+ assert.equal(C.access(c,day,43).allowed,false);
+});
+test('returning to the skipped beginning keeps the same one-at-a-time order',()=>{
+ let c=C.normalize(null),day='2026-10-12';
+ for(let unit=36;unit<=145;unit++){
+  while(Study.isWeekend(day))day=Study.shift(day,1);
+  c=C.close(c,day,unit,true,unit);day=Study.shift(day,1);
+ }
+ while(Study.isWeekend(day))day=Study.shift(day,1);
+ assert.equal(C.access(c,day,1).allowed,true);
+ assert.equal(C.access(c,day,2).required,1);
+ assert.equal(C.access(c,day,7).allowed,false);
+ c=C.close(c,day,1,true,1);day=Study.shift(day,1);
+ while(Study.isWeekend(day))day=Study.shift(day,1);
+ assert.equal(C.access(c,day,2).allowed,true);
+ assert.equal(C.access(c,day,36).reason,'review');
+});

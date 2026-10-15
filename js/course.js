@@ -1,4 +1,4 @@
-/* One selected complete unit per weekday; thematic ranks count unique units. */
+/* One sequential complete unit per weekday; thematic ranks count unique units. */
 (function(root){
   'use strict';
   const Study=typeof module!=='undefined'&&module.exports?require('./study.js'):root.EGIUStudy;
@@ -21,7 +21,7 @@
   }
   const closedUnits=(course,day)=>new Set(Object.entries(course.closed).filter(([d])=>d<=day).map(([,u])=>u));
   function close(course,day,unit,complete,target){
-    if(!Study.date(day)||day<course.since||Study.isWeekend(day)||complete!==true||unit!==target||!Number.isInteger(unit)||unit<1||unit>145||course.closed[day]||closedUnits(course,day).has(unit)) return course;
+    if(complete!==true||unit!==target||unit!==next(course,day)||!access(course,day,unit).allowed||closedUnits(course,day).has(unit)) return course;
     return {...course,closed:{...course.closed,[day]:unit}};
   }
   function next(course,day){
@@ -29,6 +29,18 @@
     for(let u=course.startUnit;u<=145;u++) if(!done.has(u)) return u;
     for(let u=1;u<course.startUnit;u++) if(!done.has(u)) return u;
     return null;
+  }
+  function access(course,day,unit){
+    if(!Study.date(day)||!Number.isInteger(unit)||unit<1||unit>145)return {allowed:false,reason:'unavailable',required:null};
+    if(closedUnits(course,day).has(unit))return {allowed:true,reason:'review',required:null};
+    const required=next(course,day);
+    // The personal start skips earlier book units once, while keeping their practice open.
+    if(unit<course.startUnit&&required>=course.startUnit)return {allowed:true,reason:'background',required};
+    if(unit!==required)return {allowed:false,reason:'sequence',required};
+    if(day<course.since)return {allowed:false,reason:'not-started',required};
+    if(Study.isWeekend(day))return {allowed:false,reason:'weekend',required};
+    if(course.closed[day])return {allowed:false,reason:'day-complete',required};
+    return {allowed:true,reason:'lesson',required};
   }
   function rank(course,day){
     const done=closedUnits(course,day).size;
@@ -41,6 +53,6 @@
     return {done,total,remaining:total-done,pct:total?Math.round(done/total*100):0};
   }
   const bookReady=(book,unit)=>Number.isInteger(unit)&&unit>=1&&unit<=145&&!!book&&typeof book==='object'&&!Array.isArray(book)&&Object.prototype.hasOwnProperty.call(book,unit)&&book[unit]===true;
-  const api={RANKS,normalize,close,next,rank,closedUnits,planAfter,sectionProgress,bookReady};
+  const api={RANKS,normalize,close,next,access,rank,closedUnits,planAfter,sectionProgress,bookReady};
   if(typeof module!=='undefined'&&module.exports) module.exports=api;else root.EGIUCourse=api;
 })(typeof window==='undefined'?globalThis:window);
