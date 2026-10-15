@@ -126,9 +126,11 @@
   function ensureGoal() {
     const day = todayKey();
     if (Study.isWeekend(day) || Weekly.status(weekly,day).blocked) return null;
-    if (!club.goals[day]) {
-      const u = plannedUnit(day);
+    const u = plannedUnit(day);
+    if (!club.goals[day] || (day >= course.since && club.goals[day].unit !== u.n)) {
       club.goals[day] = { unit: u.n, required: unitTypes(u) };
+      dailyPlan[day] = u.n;
+      Store.set('dailyPlan', dailyPlan);
       saveClub();
     }
     if (day >= course.since && !course.closed[day]) { club.goals[day].required = unitTypes(D.units[club.goals[day].unit]); saveClub(); }
@@ -657,8 +659,8 @@
   document.addEventListener('keydown', (e) => keyHandler && keyHandler(e));
 
   function session({ title, back, items, onDone, context = {} }) {
+    if(context.kind==='unit'&&!requireLesson(D.units[context.unit]))return;
     if(!requireBook(items.map(it=>it.ref&&it.ref.u),back,()=>session({title,back,items,onDone,context})))return;
-    if(context.kind==='unit'&&!Weekly.canStart(weekly,course,todayKey(),context.unit))return weeklyUI.blockedPage();
     let pos = 0, ctl = {}, answered = false, ended = false, reward = null;
     const tracked = context.kind === 'unit' && context.unit && context.mode;
     const learningDraft = context.learningSession && learning.sessions[context.learningSession];
@@ -835,6 +837,7 @@
     }).join('')}</div>`;
   }
   function plannedUnit(day) {
+    if (day >= course.since && day >= todayKey()) return D.units[course.closed[day] || Course.next(course, day) || 145];
     if (club.goals[day]) return D.units[club.goals[day].unit];
     const assigned = D.units[dailyPlan[day]];
     if (assigned) return assigned;
@@ -917,10 +920,10 @@
       ${weekend ? `<p>${state.units.length ? `Вспомни ${state.units.length} ${plural(state.units.length, 'юнит', 'юнита', 'юнитов')}, которые закреплял в будни. В наборе будет задание из каждого.` : 'На этой неделе пока нет записанных юнитов. Проверяй ответы в будни — здесь появится набор для повторения.'}</p>
         ${state.units.length && !state.done ? '<p class="plan-help">+25 XP за полное повторение сегодня.</p>' : ''}
         ${Weekly.weekStatus(weekly,Study.weekStart(day)).pending ? `<a class="btn primary" href="#/weekly/${Study.weekStart(day)}">Сначала ошибки недели ${icon('arrow')}</a>` : state.units.length ? `<a class="btn primary" href="#/review/${day}">${state.done ? 'Повторить ещё раз' : 'Начать повторение'} ${icon('arrow')}</a>` : '<a class="btn" href="#/">Выбрать юнит</a>'}`
-        : `<label class="plan-label" for="today-unit">Один юнит после книги</label><select id="today-unit"${state.done ? ' disabled' : ''}>${D.list.map((item) => `<option value="${item.n}"${item.n === u.n ? ' selected' : ''}${Course.closedUnits(course, day).has(item.n) && item.n !== u.n ? ' disabled' : ''}>${String(item.n).padStart(2, '0')} · ${esc(item.title)}</option>`).join('')}</select>
+        : `<a class="plan-unit" href="#/u/${u.n}"><span>Unit <b>${String(u.n).padStart(2,'0')}</b></span><strong lang="en">${esc(u.title)}</strong>${icon(state.done?'check':'arrow')}</a>
         <div class="goal-heading"><b>${state.completed.filter((t) => goal.required.includes(t)).length} / ${goal.required.length} упражнений</b><span>+20 XP за день</span></div>
         ${goalList(goal, state)}
-        <p class="plan-help">Все упражнения → экзамен от 80% → закрытый день. Один юнит в будний день.</p>
+        <p class="plan-help">Все упражнения → экзамен от 80% → закрытый день. Юниты идут по порядку, по одному в будний день.</p>
         ${!bookReady(u.n) ? `<a class="btn primary" href="#/u/${u.n}">Сначала — отметить книгу ${icon('book')}</a>` : allComplete && !exam.passed && !state.done ? `<a class="btn primary" href="#/u/${u.n}/exam">${exam.draft ? 'Продолжить экзамен' : 'Сдать экзамен'} ${icon('arrow')}</a>` : canClaim ? '<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>' : `<a class="btn primary today-start" href="#/u/${u.n}${next && !state.done ? '/' + next : ''}">${state.done ? 'Продолжить практику' : next ? 'Следующее занятие' : 'Открыть юнит'} ${icon('arrow')}</a>`}`}
     </div>`+(state.done?afterDayPlan(day):'');
   }
@@ -929,16 +932,6 @@
     if(!plan)return '';
     const u=plan.kind==='unit'?plannedUnit(plan.day):null,closedUnit=course.closed[day];
     return `<section class="card after-day-plan" aria-label="После закрытого дня"><span class="eyebrow">Следующая страница</span><h3>Завтра · ${dateLabel(plan.day,{weekday:'long',day:'numeric',month:'long'})}</h3><p>${u?`Unit ${u.n} · <span lang="en">${esc(u.title)}</span>`:plan.kind==='review'?'Повторение юнитов этой недели. Новую тему закрывать не нужно.':'Все юниты закрыты. Можно возвращаться к темам и собственной речи.'}</p><div class="actions"><a class="btn small" href="#/calendar/${plan.day}">Посмотреть план</a>${closedUnit?`<a class="btn small" href="#/u/${closedUnit}/context">Unit ${closedUnit} · применить в своей речи</a>`:''}</div>${topics.length||errors.length?`<div class="after-day-review"><p>Можно закрепить сегодня — без нового юнита:</p><div class="actions">${topics.length?`<a class="btn small" href="#/retention">Темы на повторение · ${topics.length}</a>`:''}${errors.length?`<a class="btn small" href="#/mistakes">Ошибки на сегодня · ${errors.length}</a>`:''}</div></div>`:'<p class="muted small">Обязательных повторений на сегодня нет.</p>'}</section>`;
-  }
-  function wireTodayPlan() {
-    const select = $('#today-unit');
-    if (!select) return;
-    select.onchange = () => {
-      dailyPlan[todayKey()] = +select.value;
-      Store.set('dailyPlan', dailyPlan);
-      club.goals[todayKey()] = { unit: +select.value, required: unitTypes(D.units[select.value]) };
-      saveClub(); route();
-    };
   }
   function calendarPage(day) {
     ensureGoal();
@@ -983,7 +976,6 @@
       </div></div>`;
     app.insertAdjacentHTML('beforeend',learnUI.deskCard());
     const weekUnits=Study.weekUnits(activity,day);if(Study.isWeekend(day)&&weekUnits.length)app.insertAdjacentHTML('beforeend',`<section class="card weekend-context"><h2>Воскресенье · своя речь</h2><p>Возьми одну тему недели, прослушай реплики и перескажи ситуацию своими словами.</p>${weekUnits.map(n=>`<a class="btn small" href="#/u/${n}/context">Unit ${n} →</a>`).join('')}</section>`);
-    wireTodayPlan();
   }
   function reviewPage(day) {
     const week = Study.weekStart(day), units = Study.weekUnits(activity, day);
@@ -1024,12 +1016,23 @@
     wireBookCheckpoint(first,()=>{if(requireBook(units,back,resume))resume();});
     return false;
   }
+  function requireLesson(u) {
+    if(!Weekly.canStart(weekly,course,todayKey(),u.n)){weeklyUI.blockedPage();return false;}
+    const access=Course.access(course,todayKey(),u.n);
+    if(access.allowed)return true;
+    keyHandler=null;
+    const current=D.units[access.required],sameSection=current&&current.section===u.section;
+    const heading=access.reason==='day-complete'?'Сегодняшний юнит уже закрыт':access.reason==='weekend'?'Выходные — для закрепления':access.reason==='not-started'?'Курс начнётся по плану':sameSection?'Сначала закончи предыдущий юнит':'Этот раздел откроется позже';
+    const message=access.reason==='day-complete'?`Сегодня закрыт Unit ${course.closed[todayKey()]}. Новый юнит начнём в следующий будний день. Сейчас можно повторить пройденное.`:access.reason==='weekend'?'В субботу и воскресенье разбираем ошибки и повторяем неделю. Новый юнит будет доступен в будний день.':access.reason==='not-started'?`Первый учебный день — ${dateLabel(course.since)}.`:current?`Сейчас очередь Unit ${current.n}. Выполни все его упражнения и сдай экзамен. Следующий юнит и новый раздел открываются по порядку.`:'Все юниты уже закрыты.';
+    app.innerHTML=`<div class="page-narrow sequence-page"><div class="crumbs"><a href="#/">Оглавление</a> / Unit ${u.n}</div><section class="sequence-gate" aria-label="Урок пока недоступен"><span class="sequence-seal" aria-hidden="true">${icon('lock')}</span><span class="eyebrow" lang="en">The Study Club / One step at a time</span><h1>${heading}</h1><p class="page-intro">${message}</p>${current?`<div class="sequence-current"><span>Следующий в курсе · Unit ${current.n}</span><b lang="en">${esc(current.title)}</b><small>${esc(current.section.ru)}</small></div>`:''}<p class="muted small">Сохранённые ответы и закрытые юниты остаются на месте. Работа над ошибками доступна отдельно.</p><div class="actions">${current&&Course.access(course,todayKey(),current.n).allowed?`<a class="btn primary" href="#/u/${current.n}">Продолжить Unit ${current.n} ${icon('arrow')}</a>`:'<a class="btn primary" href="#/calendar">Открыть календарь →</a>'}<a class="btn ghost" href="#/mistakes">Разобрать ошибки</a><a class="btn ghost" href="#/">К оглавлению</a></div></section></div>`;
+    return false;
+  }
   function unitRow(u) {
-    const state=unitCompletion(u),closed=Course.closedUnits(course,todayKey()).has(u.n),ready=bookReady(u.n);
-    const status=closed?'Юнит закрыт':!ready?'Сначала книга':state.complete?(Exam.status(exams,u.n).passed?'Готов к зачёту':'Нужен экзамен'):state.done?'В процессе':'К практике';
-    return `<a class="urow${closed?' is-closed':state.done?' is-started':''}" href="#/u/${u.n}">
-      <span class="unum">${String(u.n).padStart(2,'0')}</span><span class="urow-copy"><span class="utitle" lang="en">${esc(u.title)}</span><span class="urow-detail">${closed?'Зачтён в курсе':state.done?`${state.done} / ${state.total} заданий выполнено`:ready?'Книга пройдена · упражнения открыты':'Практика откроется после книги'}</span></span>
-      <span class="unit-state${closed?' is-closed':''}">${icon(closed?'check':ready?'book':'lock')}<span>${status}${!closed&&state.done?` · ${state.pct}%`:''}</span></span>${!closed&&state.done?bar(state.pct):''}</a>`;
+    const state=unitCompletion(u),access=Course.access(course,todayKey(),u.n),closed=access.reason==='review',background=access.reason==='background',ready=bookReady(u.n),locked=!access.allowed;
+    const status=closed?'Юнит закрыт':locked?access.reason==='day-complete'?'Следующий будний день':access.reason==='weekend'?'После выходных':`Сначала Unit ${access.required}`:background?'Дополнительная практика':!ready?'Сначала книга':state.complete?(Exam.status(exams,u.n).passed?'Готов к зачёту':'Нужен экзамен'):state.done?'В процессе':'Текущий юнит';
+    return `<a class="urow${closed?' is-closed':locked?' is-locked':background?'':' is-current'}${!closed&&state.done?' is-started':''}" href="#/u/${u.n}">
+      <span class="unum">${String(u.n).padStart(2,'0')}</span><span class="urow-copy"><span class="utitle" lang="en">${esc(u.title)}</span><span class="urow-detail">${closed?'Зачтён в курсе':locked?`${state.done?`Сохранено ${state.done} / ${state.total} заданий · `:''}Открывается по порядку`:state.done?`${state.done} / ${state.total} заданий выполнено`:background?'Пропущен при старте · практика доступна после книги':ready?'Книга пройдена · упражнения открыты':'Практика откроется после книги'}</span></span>
+      <span class="unit-state${closed?' is-closed':''}">${icon(closed?'check':locked?'lock':ready?'book':'arrow')}<span>${status}${!closed&&state.done?` · ${state.pct}%`:''}</span></span>${!closed&&state.done?bar(state.pct):''}</a>`;
   }
 
   function home() {
@@ -1043,7 +1046,7 @@
       <section class="hero" aria-labelledby="home-title">
         <div><span class="eyebrow">English Grammar in Use / личная практика</span>
           <h1 id="home-title">После книги —<br><em>практика.</em></h1>
-          <p>Пройди юнит у Мёрфи, затем закрепи его здесь.<br>Выбери упражнение и возвращайся к сложным местам.</p></div>
+          <p>Пройди юнит у Мёрфи, затем закрепи его здесь.<br>Новые уроки — по порядку. Пройденное — на повторение.</p></div>
         <div class="stats" aria-label="Твой прогресс">
           <div><b>${inBook}<span class="sr-only"> из ${D.list.length}</span></b><span>пройдено в книге</span></div>
           <div><b>${started}</b><span>${plural(started, 'юнит', 'юнита', 'юнитов')} в практике</span></div>
@@ -1096,8 +1099,11 @@
         if (!units.length) return '';
         const open = filter === 'book' || (last ? last.section === section : i === 0);
         const completion = Course.sectionProgress(course, todayKey(), section.units.map(u => u.n));
+        const current=D.units[Course.next(course,todayKey())],active=current&&current.section===section;
+        const background=section.units.some(u=>Course.access(course,todayKey(),u.n).reason==='background');
+        const sectionAccess=completion.remaining?(active?`Текущий раздел · Unit ${current.n}`:background?'Ранние юниты · практика открыта':`По очереди · сначала Unit ${current?.n}`):'Можно повторять';
         return `<details class="sec${completion.done?' has-progress':''}${!completion.remaining?' is-complete':''}" style="--section-progress:${completion.pct}"${open ? ' open' : ''}>
-          <summary><span class="sec-index">${String(i + 1).padStart(2, '0')}</span><span class="sec-t"><span lang="en">${esc(section.en)}</span><small>${esc(section.ru)} <span class="sec-range">· юниты ${String(section.units[0].n).padStart(2, '0')}–${String(section.units[section.units.length - 1].n).padStart(2, '0')}</span></small></span>
+          <summary><span class="sec-index">${String(i + 1).padStart(2, '0')}</span><span class="sec-t"><span lang="en">${esc(section.en)}</span><small>${esc(section.ru)} <span class="sec-range">· юниты ${String(section.units[0].n).padStart(2, '0')}–${String(section.units[section.units.length - 1].n).padStart(2, '0')}</span></small><span class="section-access${active?' is-current':''}">${icon(!completion.remaining?'check':active?'arrow':background?'book':'lock')}${sectionAccess}</span></span>
             <span class="sec-progress" aria-label="Закрыто ${completion.done} из ${completion.total} юнитов. Осталось ${completion.remaining}."><span class="sec-count"><b>${completion.done}</b><span>из ${completion.total}<small>юнитов закрыто</small></span></span><span class="sec-slots" aria-hidden="true">${section.units.map(item=>`<i class="${Course.closedUnits(course,todayKey()).has(item.n)?'is-filled':''}" title="Unit ${item.n}${Course.closedUnits(course,todayKey()).has(item.n)?' · закрыт':' · ещё не закрыт'}"></i>`).join('')}</span><small>${completion.remaining?`Осталось ${completion.remaining}`:'Раздел полностью закрыт ✓'}</small></span>${icon('chevron')}</summary>
           <div class="ulist">${units.map(unitRow).join('')}</div></details>`;
       }).join('');
@@ -1105,7 +1111,6 @@
     search.oninput = drawSections;
     $$('.filter').forEach((b) => { b.onclick = () => { filter = b.dataset.filter; Store.set('homeFilter', filter); drawSections(); }; });
     drawSections();
-    wireTodayPlan();
   }
 
   function unitPage(u) {
@@ -1130,7 +1135,7 @@
         <section class="unit-practice${ready?'':' is-locked'}" aria-labelledby="practice-title">
           <div class="practice-head"><h2 id="practice-title">Закрепить тему</h2><span class="unit-completion">${completion.pct}% выполнено <small>${completion.done} / ${completion.total} заданий</small></span></div>
           <p class="completion-help">Выполнение сохраняется после каждого ответа. Правильность показывается отдельно.</p>
-          ${!ready?`<div class="practice-lock-note">${icon('lock')}<div><b>Практика пока закрыта</b><p>Подтверди первый шаг в карточке книги выше. После этого можно начинать с любого упражнения.</p></div></div>`:goal && goal.unit === u.n ? `<section class="unit-goal" aria-label="Дневной набор"><div class="goal-heading"><b>${state.done ? 'День закрыт' : `Упражнения · ${state.completed.length} / ${goal.required.length}`}</b><a href="#/calendar">Дневник →</a></div>${goalList(goal, state)}${completion.complete && Exam.status(exams, u.n).passed && !state.done && !claimed ? '<button class="btn primary small claim-unit" type="button">Закрыть юнит сегодня</button>' : ''}</section>` : `<div class="unit-goal-note"><span>${claimed ? 'Юнит уже закрыт. Можно повторять.' : course.closed[todayKey()] ? `Сегодня закрыт Unit ${course.closed[todayKey()]}. Здесь — свободная практика.` : goal ? `Свободная практика. Цель на сегодня — Unit ${goal.unit}.` : 'Свободная практика выходного. Все ответы сохраняются.'}</span>${goal && !state.done && !claimed ? '<button class="btn small make-today-unit" type="button">Выбрать на сегодня</button>' : ''}</div>`}
+          ${!ready?`<div class="practice-lock-note">${icon('lock')}<div><b>Практика пока закрыта</b><p>Подтверди первый шаг в карточке книги выше. После этого можно начинать с любого упражнения этого юнита.</p></div></div>`:goal && goal.unit === u.n ? `<section class="unit-goal" aria-label="Дневной набор"><div class="goal-heading"><b>${state.done ? 'День закрыт' : `Упражнения · ${state.completed.length} / ${goal.required.length}`}</b><a href="#/calendar">Дневник →</a></div>${goalList(goal, state)}${completion.complete && Exam.status(exams, u.n).passed && !state.done && !claimed ? '<button class="btn primary small claim-unit" type="button">Закрыть юнит сегодня</button>' : ''}</section>` : `<div class="unit-goal-note">${claimed?'Юнит уже закрыт. Можно повторять; следующий новый урок идёт по плану курса.':`Ранний юнит открыт для дополнительной практики. Ответы сохраняются. Дневная цель — Unit ${Course.next(course,todayKey())}; этот юнит зачтём, когда вернёмся к началу курса.`}</div>`}
           ${Object.keys(GROUPS).filter((g) => groups[g]).map((g) => `
             <h3 class="grp">${GROUPS[g]}</h3>
             <div class="grid">${groups[g].map((t) => {
@@ -1154,12 +1159,6 @@
         ${next ? `<a class="btn ghost" href="#/u/${next.n}">Unit ${next.n} →</a>` : ''}
       </div>`;
     wireBookCheckpoint(u);
-    const makeToday = $('.make-today-unit');
-    if (makeToday) makeToday.onclick = () => {
-      club.goals[todayKey()] = { unit: u.n, required: unitTypes(u) };
-      dailyPlan[todayKey()] = u.n;
-      Store.set('dailyPlan', dailyPlan); saveClub(); route();
-    };
   }
 
   // ---------- итоговая проверка ----------
@@ -1213,7 +1212,7 @@
     return `<section class="exam-card ${ready ? 'is-ready' : ''}" aria-label="Итоговый экзамен">
       <div class="exam-seal" aria-hidden="true" lang="en">Study<br>Club<span>${status.passed ? '✓' : 'E'}</span></div>
       <div><span class="eyebrow" lang="en">Unit ${u.n} / Final examination</span><h3>${status.passed ? 'Экзамен сдан' : 'Итоговый экзамен'}</h3>
-        <p>${ready ? '13 разных примеров · смешанные форматы · от 80% для сдачи. Разбор после последнего ответа.' : bookReady(u.n)?'Откроется после всех упражнений юнита. Сдача экзамена закрывает выбранный юнит и будний день.':'Сначала подтверди книгу, затем выполни упражнения. После этого откроется итоговая проверка.'}</p>
+        <p>${ready ? '13 разных примеров · смешанные форматы · от 80% для сдачи. Разбор после последнего ответа.' : bookReady(u.n)?'Откроется после всех упражнений юнита. Сдача экзамена закрывает текущий юнит курса и будний день.':'Сначала подтверди книгу, затем выполни упражнения. После этого откроется итоговая проверка.'}</p>
         ${status.best !== null ? `<p class="exam-best">Лучший результат: ${status.best}% · попыток ${status.attempts}</p>` : ''}
         ${ready ? `<a class="btn primary small" href="#/u/${u.n}/exam">${status.draft ? `Продолжить · ${status.answered}/13` : status.last ? 'Результат и пересдача' : 'Открыть экзамен'} ${icon('arrow')}</a>` : `<span class="muted small">Упражнения: ${unitCompletion(u).done} / ${unitCompletion(u).total}</span>`}
       </div></section>`;
@@ -1237,6 +1236,7 @@
     updateNav();
   }
   function examPage(u) {
+    if(!requireLesson(u))return;
     prep(u);
     if (!unitCompletion(u).complete) {
       app.innerHTML = `<div class="page-narrow"><div class="crumbs"><a href="#/u/${u.n}">Unit ${u.n}</a> / Экзамен</div><h1>Сначала — упражнения</h1>${examCard(u)}<a class="btn" href="#/u/${u.n}">Продолжить юнит →</a></div>`;
@@ -1260,7 +1260,7 @@
       });
     });
     const start = $('.start-exam');
-    if(start)start.onclick=()=>{if(!Weekly.canStart(weekly,course,todayKey(),u.n))return weeklyUI.blockedPage();if(!Exam.status(exams,u.n).draft){exams=Exam.start(exams,u.n,examItems(u),'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2),todayKey());saveExams();const a=Exam.status(exams,u.n).draft;if(a&&a.items[0].ref.b){learning=Learning.useForm(learning,u.n,a.items[0].ref.v,a.id);saveLearning();}}examRun(u);};
+    if(start)start.onclick=()=>{if(!requireLesson(u))return;if(!Exam.status(exams,u.n).draft){exams=Exam.start(exams,u.n,examItems(u),'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2),todayKey());saveExams();const a=Exam.status(exams,u.n).draft;if(a&&a.items[0].ref.b){learning=Learning.useForm(learning,u.n,a.items[0].ref.v,a.id);saveLearning();}}examRun(u);};
   }
   function examResult(u,attempt) {
     const results=attempt.items.map(d=>({...attempt.answers[Exam.key(d)],item:restoreExamItem(d)}));
@@ -1269,7 +1269,7 @@
     const goal=ensureGoal(), claimed=Course.closedUnits(course,todayKey()).has(u.n);
     const claimable=goal&&goal.unit===u.n&&!dayState(todayKey()).done&&!claimed&&Exam.canClose(exams,u.n,true);
     return `${course.closed[todayKey()]===u.n?dayCelebration():''}<section class="card exam-result"><span class="eyebrow" lang="en">${passed?'Pass':'Try again'}</span><div class="exam-score"><b>${Math.round(correct/13*100)}%</b><span>${correct} / 13 верно</span></div>
-      <h2>${passed?'Экзамен сдан':'Пока не сдан'}</h2><p>${passed ? claimed ? 'Юнит закрыт. Можно продолжать закрепление и возвращаться к сложным местам.' : 'Проверка пройдена. Закрыть этот юнит можно, выбрав его целью свободного буднего дня.' : 'Нужно минимум 11 верных ответов. Разбери сложные места, потренируйся и попробуй ещё раз.'}</p>
+      <h2>${passed?'Экзамен сдан':'Пока не сдан'}</h2><p>${passed ? claimed ? 'Юнит закрыт. Можно продолжать закрепление и возвращаться к сложным местам.' : 'Проверка пройдена. Юнит засчитывается по порядку курса, один в будний день.' : 'Нужно минимум 11 верных ответов. Разбери сложные места, потренируйся и попробуй ещё раз.'}</p>
       <div class="exam-breakdown">${Object.entries(breakdown).map(([t,b])=>`<div><span>${TYPES[t].name}</span><b>${b.correct}/${b.total}</b></div>`).join('')}</div>
       <div class="actions">${claimable?'<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>':''}<button class="btn ${passed?'':'primary'} start-exam" type="button">${passed?'Пересдать для себя':'Новая попытка'}</button><a class="btn ghost" href="#/mistakes">Закрепить ошибки</a></div>
       ${course.closed[todayKey()]===u.n?`<p class="exam-day-complete">${icon('check')} День закрыт · ранг <span lang="en">${Course.rank(course,todayKey()).current.en}</span><a href="#/calendar">Дневник →</a></p>`:''}
@@ -1277,6 +1277,7 @@
       <div class="exam-analysis">${results.map((r,i)=>`<details class="exam-answer ${r.ok?'is-correct':'is-wrong'}"${!r.ok?' open':''}><summary><span>${i+1}. ${TYPES[r.item.t].name}</span><b>${r.correction==='spelling'?'Вариант написания принят':r.accepted?'Зачтено после разбора':r.ok?'Верно':'Разобрать'}</b></summary><p class="exam-user">Твой ответ: <span lang="en">${esc(r.user || '∅')}</span></p><p class="answer" lang="en">${esc(correctText(r.item))}</p>${Notes.render(answerNote(r.item,r))}${!r.ok?`<div data-exam-appeal="${i}"></div>`:''}</details>`).join('')}</div>`;
   }
   function examRun(u) {
+    if(!requireLesson(u))return;
     const draft=Exam.status(exams,u.n).draft;
     if(!draft)return examPage(u);
     const pending=draft.items.filter(it=>!draft.answers[Exam.key(it)]);
@@ -1314,8 +1315,8 @@
   }
 
   function startUnit(u, t) {
+    if(!requireLesson(u))return;
     if(!bookReady(u.n))return unitPage(u);
-    if(!Weekly.canStart(weekly,course,todayKey(),u.n))return weeklyUI.blockedPage();
     if (!TYPES[t] || !available(u, t)) return go('#/u/' + u.n);
     ensureGoal();
     Store.set('last', u.n);
@@ -1374,7 +1375,8 @@
   }
 
   function mixPage() {
-    const bookUnits = D.list.filter((u) => bookReady(u.n));
+    const eligible=u=>bookReady(u.n)&&Course.access(course,todayKey(),u.n).allowed&&Weekly.canStart(weekly,course,todayKey(),u.n);
+    const bookUnits = D.list.filter(eligible);
     const mixTypes = ['mc', 'fill', 'order', 'err', 'tr', 'lgap', 'dict', 'speak'];
     const sel = Store.get('mixTypes', ['mc', 'fill']);
     app.innerHTML = `<div class="page-narrow">
@@ -1383,7 +1385,7 @@
       ${weeklyUI.banner()}
       ${Weekly.status(weekly,todayKey()).blocked?'<p class="muted small">В миксе доступны только закрытые юниты, пока не завершена работа над ошибками.</p>':''}
       <div class="card form">
-        <p class="mix-book-note">${icon('book')} Доступно после книги: <b>${bookUnits.length} ${plural(bookUnits.length,'юнит','юнита','юнитов')}</b>. <a href="#/">Отметить пройденные →</a></p>
+        <p class="mix-book-note">${icon('book')} Доступно: <b>${bookUnits.length} ${plural(bookUnits.length,'юнит','юнита','юнитов')}</b>. В миксе — закрытые и ранние юниты, а также текущий урок после отметки книги. <a href="#/">Оглавление →</a></p>
         <h2>Разделы <button class="btn link small all" type="button">все</button> <button class="btn link small none" type="button">ни одного</button></h2>
         <div class="checks secs">${D.sections.map((s, i) => `<label><input type="checkbox" value="${i}" checked> ${esc(s.en)}</label>`).join('')}</div>
         <h2>Типы заданий</h2>
@@ -1401,11 +1403,10 @@
       saveSettings();
       Store.set('mixTypes', types);
       let units = [].concat(...secs.map((s) => s.units));
-      units = units.filter((u) => bookReady(u.n));
-      units=units.filter(u=>Weekly.canStart(weekly,course,todayKey(),u.n));
+      units = units.filter(eligible);
       if(!units.length&&secs.length&&Weekly.status(weekly,todayKey()).blocked){toast('В выбранных темах нет закрытых юнитов. Сначала заверши ошибки недели.');return;}
       if(!secs.length||!types.length){toast('Выбери хотя бы один раздел и тип задания.');return;}
-      if(!units.length){toast('В выбранных разделах нет отметок книги. Сначала подтверди пройденные юниты.');return;}
+      if(!units.length){toast('Здесь пока нет доступных юнитов. Выбери закрытые темы или текущий урок после книги.');return;}
       const pool = [];
       units.forEach((u) => types.forEach((t) => { if (available(u, t)) pool.push([u, t]); }));
       if (!pool.length) { toast('Нет подходящих заданий'); return; }
@@ -1505,7 +1506,7 @@
     const rank = Course.rank(course, todayKey());
     app.innerHTML = `<div class="page-narrow ranks-page"><span class="eyebrow" lang="en">The Study Club</span><h1>Лестница рангов</h1>
       <p class="page-intro">${rank.done} из 145 юнитов закрыто. ${rank.next ? `Следующий ранг — ${rank.next.en}, осталось ${rank.remaining} ${plural(rank.remaining, 'юнит', 'юнита', 'юнитов')}.` : 'Ты прошёл весь курс.'}</p>
-      <p class="rank-rules">Все упражнения юнита, по частям. Один выбранный юнит в будний день. Пройденное в книге и XP учитываются отдельно.</p>
+      <p class="rank-rules">Все упражнения юнита и экзамен, по частям. Один юнит по порядку курса в будний день. Пройденное в книге и XP учитываются отдельно.</p>
       <ol class="rank-ladder">${Course.RANKS.map((r, i) => `<li class="${r.en === rank.current.en ? 'is-current' : r.at <= rank.done ? 'is-earned' : ''}"><span class="rank-index">${String(i + 1).padStart(2, '0')}</span><div><b lang="en">${r.en}</b><span>${r.ru}</span></div><span class="rank-threshold">${r.at} ${plural(r.at, 'юнит', 'юнита', 'юнитов')}<small>${r.en === rank.current.en ? 'Твой ранг' : r.at <= rank.done ? 'Открыт' : 'Впереди'}</small></span></li>`).join('')}</ol>
       <p class="muted small">Игровая лестница по мотивам английских сословий и титулов.</p><a class="btn ghost" href="#/calendar">Вернуться в дневник →</a></div>`;
   }
@@ -1519,8 +1520,8 @@
           <select class="theme"><option value="light">Светлая бумага</option><option value="dark">Тёмная</option><option value="system">Как в системе</option></select></label>
       </div>
       <div class="card form"><h2>Ежедневный план</h2>
-        <p>Все упражнения выбранного юнита → экзамен от 80% → закрытый день. Не более одного юнита в будний день; в выходные — повторение недели.</p>
-        <p class="muted small">Следующий юнит курса: ${Course.next(course, todayKey()) || 'все пройдены'}. Предыдущие темы доступны для свободной практики. Ранг растёт за разные закрытые юниты.</p>
+        <p>Все упражнения юнита → экзамен от 80% → закрытый день. Юниты и разделы открываются по порядку, не более одного юнита в будний день; в выходные — повторение недели.</p>
+        <p class="muted small">Следующий юнит курса: ${Course.next(course, todayKey()) || 'все пройдены'}. Закрытые темы доступны для повторения. Ранг растёт за разные закрытые юниты.</p>
         <p class="muted small">10 XP за новый завершённый режим дня · 20 XP за закрытый будний юнит · 25 XP за повторение выходного · 50 XP за полную неделю.</p>
         <a href="#/ranks">Лестница рангов →</a>
       </div>
@@ -1608,12 +1609,13 @@
     });
     if (p[0] === 'u' && D.units[p[1]]) {
       const u = D.units[p[1]];
-      if(!Weekly.canStart(weekly,course,todayKey(),u.n))weeklyUI.blockedPage();
-      else if(p[2]&&!bookReady(u.n))unitPage(u);
-      else if (p[2] === 'exam') examPage(u);
-      else if (p[2] === 'context') learnUI.contextPage(u.n);
-      else if (p[2]) startUnit(u, p[2]);
-      else unitPage(u);
+      if(requireLesson(u)){
+        if(p[2]&&!bookReady(u.n))unitPage(u);
+        else if (p[2] === 'exam') examPage(u);
+        else if (p[2] === 'context') learnUI.contextPage(u.n);
+        else if (p[2]) startUnit(u, p[2]);
+        else unitPage(u);
+      }
     } else if (p[0] === 'calendar') calendarPage(Study.date(p[1]) ? p[1] : todayKey());
     else if (p[0] === 'review') reviewPage(Study.date(p[1]) ? p[1] : todayKey());
     else if(p[0]==='weekly'){
