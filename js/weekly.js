@@ -7,11 +7,13 @@
  const text=(s,max=5000)=>typeof s==='string'?s.slice(0,max):'';
  function reference(r){const n=Review.normalize([r],'2000-01-03')[0];return n?{u:n.u,k:n.k,i:n.i,...(n.b?{b:n.b,v:n.v}:{})}:null;}
  const sourceMode=(ref,mode)=>ref.k==='gap'?(['mc','fill','order','lgap','dict','speak'].includes(mode)?mode:'fill'):ref.k;
- function cleanRow(raw,week,depth=1){
+ const individualDone=row=>row.read&&phases.every(p=>row.answers[p]?.ok);
+ function cleanRow(raw,week,depth=1,allowShared=true){
   if(!raw||!reference(raw.ref)||!Study.date(raw.day)||Study.weekStart(raw.day)!==week||!text(raw.event,200))return null;
   const row={ref:reference(raw.ref),event:text(raw.event,200),day:raw.day,user:text(raw.user),mode:sourceMode(raw.ref,raw.mode),read:raw.read===true,answers:{},previous:null};
   if(row.read)for(const phase of phases){const a=raw.answers&&raw.answers[phase];if(!a||typeof a.ok!=='boolean'||!text(a.event,200))break;row.answers[phase]={ok:a.ok,user:text(a.user),event:text(a.event,200)};if(!a.ok)break;}
   if(depth&&raw.previous){const prev=cleanRow(raw.previous,week,depth-1);if(prev&&key(prev.ref)===key(row.ref))row.previous=prev;}
+  if(allowShared&&raw.shared){const shared=cleanRow(raw.shared,week,0,false);if(shared&&individualDone(shared)&&Review.topic(shared.ref,shared.mode)===Review.topic(row.ref,row.mode))row.shared=shared;}
   return row;
  }
  function normalize(raw,day){
@@ -26,7 +28,12 @@
   }
   return s;
  }
- const done=row=>row.read&&phases.every(p=>row.answers[p]&&row.answers[p].ok);
+ const done=row=>individualDone(row)||!!(row.shared&&individualDone(row.shared)&&Review.topic(row.shared.ref,row.shared.mode)===Review.topic(row.ref,row.mode));
+ const steps=row=>(row.read?1:0)+phases.filter(p=>row.answers[p]?.ok).length;
+ function groups(s,week){
+  const out=new Map();for(const row of Object.values(s.weeks[week]||{})){const id=Review.topic(row.ref,row.mode);if(!out.has(id))out.set(id,{id,unit:row.ref.u,kind:id.split(':')[1],rows:[]});out.get(id).rows.push(row);}
+  return [...out.values()].map(g=>{const pending=g.rows.filter(r=>!done(r)),source=(pending.length?pending:g.rows).reduce((a,b)=>steps(b)>steps(a)?b:a);return {...g,source,done:!pending.length,steps:pending.length?steps(source):4};});
+ }
  function replace(s,week,k,row){return {...s,weeks:{...s.weeks,[week]:{...s.weeks[week],[k]:row}}};}
  function capture(s,ref,result,day,event){
   if(!result||result.ok!==false||!reference(ref)||!Study.date(day)||day<s.since||!text(event,200))return s;
@@ -41,18 +48,25 @@
   if(!r||!r.read||i<0||!result||typeof result.ok!=='boolean'||!text(event,200)||r.answers[phase]?.ok||i>0&&!r.answers[phases[i-1]]?.ok)return s;
   return replace(s,week,k,{...r,answers:{...r.answers,[phase]:{ok:result.ok,user:text(result.user),event:text(event,200)}}});
  }
+ function readGroup(s,week,id){const g=groups(s,week).find(g=>g.id===id);return !g||g.done?s:read(s,week,key(g.source.ref));}
+ function answerGroup(s,week,id,phase,result,event){
+  const g=groups(s,week).find(g=>g.id===id);if(!g||g.done)return s;
+  let out=answer(s,week,key(g.source.ref),phase,result,event);if(out===s)return s;
+  const source=out.weeks[week][key(g.source.ref)];if(individualDone(source))for(const row of g.rows)if(!done(row)&&key(row.ref)!==key(source.ref))out=replace(out,week,key(row.ref),{...row,shared:{...source,previous:null}});
+  return out;
+ }
  function cancel(s,ref,event){
   let out=s;for(const [week,rows]of Object.entries(s.weeks)){const k=key(ref),r=rows[k];if(!r)continue;
    if(r.event===event){if(r.previous)out=replace(out,week,k,r.previous);else{const copy={...out.weeks[week]};delete copy[k];out={...out,weeks:{...out.weeks,[week]:copy}};}}
    else if(r.previous&&r.previous.event===event)out=replace(out,week,k,{...r,previous:null});
   }return out;
  }
- function weekStatus(s,week){const rows=Object.values(s.weeks[week]||{}),completed=rows.filter(done).length;return {week,total:rows.length,done:completed,pending:rows.length-completed,steps:rows.reduce((n,r)=>n+(r.read?1:0)+phases.filter(p=>r.answers[p]?.ok).length,0)};}
+ function weekStatus(s,week){const rows=groups(s,week),completed=rows.filter(g=>g.done).length;return {week,total:rows.length,done:completed,pending:rows.length-completed,steps:rows.reduce((n,g)=>n+g.steps,0)};}
  function status(s,day){const current=Study.weekStart(day),debts=Object.keys(s.weeks).filter(w=>w<current).sort().map(w=>weekStatus(s,w)).filter(w=>w.pending);return {blocked:debts.length>0,oldest:debts[0]?.week||null,debts,current:weekStatus(s,current)};}
  function attentionCount(s,reviews,day){
   if(!Study.date(day))return 0;
-  const current=Study.weekStart(day),refs=new Set(Review.due(reviews,day).map(key));
-  for(const [week,rows]of Object.entries(s.weeks))if(week<=current)for(const row of Object.values(rows))if(row.day<=day&&!done(row))refs.add(key(row.ref));
+  const current=Study.weekStart(day),refs=new Set(Review.due(reviews,day).map(r=>Review.topic(r)));
+  for(const [week,rows]of Object.entries(s.weeks))if(week<=current)for(const row of Object.values(rows))if(row.day<=day&&!done(row))refs.add(Review.topic(row.ref,row.mode));
   return refs.size;
  }
  function canStart(s,course,day,unit){return !status(s,day).blocked||Object.entries(course.closed).some(([d,n])=>d<=day&&n===unit);}
@@ -71,6 +85,6 @@
   }
   return {...out,seeded:true};
  }
- const api={normalize,capture,read,answer,cancel,status,weekStatus,attentionCount,canStart,seed,done,key,phases};
+ const api={normalize,capture,read,answer,groups,readGroup,answerGroup,cancel,status,weekStatus,attentionCount,canStart,seed,done,key,phases};
  if(node)module.exports=api;else root.EGIUWeekly=api;
 })(typeof window==='undefined'?globalThis:window);
