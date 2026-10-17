@@ -726,6 +726,17 @@ kbd {
 .weekly-error-heading>span {white-space:nowrap;color:var(--muted);font-size:12px}
 .weekly-run-title {font-size:30px;line-height:1.25}
 .weekly-progress {font-size:12px;color:var(--muted);margin:12px 0 24px}
+.weekly-overview .weekly-counts {margin:20px 0;border-top:0}
+.weekly-counts div:first-child b {color:var(--accent)}
+.weekly-counts div:nth-child(2) b {color:var(--good)}
+.weekly-overview .weekly-progress {margin:8px 0 16px}
+.weekly-completed,.scheduled-errors {margin:28px 0;padding:18px 0;border-block:1px solid var(--line)}
+.weekly-completed>summary,.scheduled-errors>summary {cursor:pointer;font:23px/1.4 var(--serif);color:var(--text)}
+.weekly-completed>summary {color:var(--good)}
+.weekly-error.is-complete,.weekly-finished {border-left:3px solid var(--good)}
+.weekly-finished>.eyebrow {color:var(--good)}
+.weekly-next-review {padding:14px 16px;background:var(--good-soft);border-left:2px solid var(--good);line-height:1.7}
+.review-schedule-title {margin-top:30px}
 @media(max-width:740px){.weekly-notice{padding:16px}.weekly-notice h2{font-size:21px}.weekly-notice-footer{align-items:flex-start;flex-direction:column}.weekly-run-title{font-size:25px}}
 
 .sec summary>.icon {
