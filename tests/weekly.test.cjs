@@ -109,3 +109,62 @@ test('cancelled errors, future imported work and mastered reviews do not create 
  assert.equal(W.attentionCount(s,reviews,'2026-10-19'),2);
  assert.equal(W.attentionCount(s,reviews,'invalid'),0);
 });
+test('weekly groups merge examples of the same topic and retain the furthest unfinished progress',()=>{
+ assert.equal(typeof W.groups,'function');
+ let s=initial();s=W.capture(s,{u:37,k:'err',i:0},bad,'2026-10-14','err');
+ s=W.read(s,'2026-10-12','37:err:0');s=W.answer(s,'2026-10-12','37:err:0','original',{ok:true,user:'correct'},'original');
+ s=W.capture(s,{u:37,k:'gap',i:2},{...bad,mode:'dict'},'2026-10-14','listening');
+ const groups=W.groups(s,'2026-10-12');
+ assert.deepEqual(groups.map(g=>[g.id,g.rows.length]),[['37:grammar',2],['37:listening',1]]);
+ assert.equal(groups[0].source.ref.k,'err');assert.equal(groups[0].steps,2);
+ assert.equal(W.weekStatus(s,'2026-10-12').total,2);
+});
+test('one shared weekly set closes its topic without manufacturing answers for the other sources',()=>{
+ assert.equal(typeof W.answerGroup,'function');
+ let s=W.capture(initial(),{u:37,k:'err',i:0},bad,'2026-10-14','err');
+ s=W.readGroup(s,'2026-10-12','37:grammar');
+ for(const phase of ['original','first'])s=W.answerGroup(s,'2026-10-12','37:grammar',phase,{ok:true,user:'correct'},phase);
+ assert.equal(W.weekStatus(s,'2026-10-12').pending,1);
+ s=W.answerGroup(s,'2026-10-12','37:grammar','second',{ok:true,user:'correct'},'second');
+ assert.equal(W.weekStatus(s,'2026-10-12').pending,0);
+ assert.equal(W.done(s.weeks['2026-10-12']['37:err:0']),true);
+ assert.deepEqual(s.weeks['2026-10-12']['37:err:0'].answers,{});
+ s=W.normalize(JSON.parse(JSON.stringify(s)),'2026-10-19');
+ assert.equal(W.status(s,'2026-10-19').blocked,false);
+ const reopened=W.capture(s,{u:37,k:'err',i:0},bad,'2026-10-18','new-error');
+ assert.equal(W.weekStatus(reopened,'2026-10-12').pending,1);
+ assert.equal(W.weekStatus(W.cancel(reopened,{u:37,k:'err',i:0},'new-error'),'2026-10-12').pending,0);
+});
+test('weekly group completion cannot skip its stages or accept incomplete and foreign shared evidence',()=>{
+ assert.equal(typeof W.answerGroup,'function');
+ let s=W.capture(initial(),{u:37,k:'err',i:0},bad,'2026-10-14','err');
+ assert.deepEqual(W.answerGroup(s,'2026-10-12','37:grammar','second',{ok:true,user:'x'},'skip'),s);
+ const rows=s.weeks['2026-10-12'];
+ rows['37:err:0'].shared={...rows['37:gap:1'],read:true,answers:{second:{ok:true,user:'x',event:'fake'}}};
+ const normalized=W.normalize(s,'2026-10-17');
+ assert.equal(W.done(normalized.weeks['2026-10-12']['37:err:0']),false);
+ assert.equal(W.attentionCount(normalized,[],'2026-10-17'),1);
+});
+test('a weekly topic settles due spaced members once while preserving later dates and listening',()=>{
+ const R=require('../js/review.js'),day='2026-10-17',other={u:37,k:'err',i:0},audio={u:37,k:'gap',i:2},future={u:37,k:'gap',i:3};
+ let s=W.capture(initial(),other,bad,'2026-10-14','other');
+ s=W.capture(s,audio,{...bad,mode:'dict'},'2026-10-14','audio');
+ let reviews=R.normalize([{...ref,lastMode:'fill',due:day,lastAnswer:'mine'},{...other,lastMode:'err',due:day,lastAnswer:'other'},{...audio,lastMode:'dict',due:day},{...future,lastMode:'fill',due:'2026-10-20'}],day);
+ s=W.readGroup(s,'2026-10-12','37:grammar');
+ s=W.answerGroup(s,'2026-10-12','37:grammar','original',{ok:true,user:'correct'},'original');
+ reviews=R.record(reviews,ref,{ok:true},day,'original');
+ for(const p of ['first','second'])s=W.answerGroup(s,'2026-10-12','37:grammar',p,{ok:true,user:'correct'},p);
+ const g=W.groups(s,'2026-10-12').find(g=>g.id==='37:grammar');
+ reviews=R.recordGroup(reviews,g.rows.map(r=>r.ref),{ok:true},day,'second',{ref,mode:'fill'});
+ assert.equal(W.weekStatus(s,'2026-10-12').pending,1);
+ assert.deepEqual(reviews.map(r=>[R.state(r).stage,R.state(r).due]),[[1,'2026-10-20'],[1,'2026-10-20'],[0,day],[0,'2026-10-20']]);
+ assert.equal(reviews[1].lastAnswer,'other');assert.deepEqual(s.weeks['2026-10-12']['37:err:0'].answers,{});
+});
+test('a completed proof from another unit or channel cannot close a weekly source',()=>{
+ const s=initial(),week='2026-10-12',row=s.weeks[week]['37:gap:1'];
+ const proof=complete(initial()).weeks[week]['37:gap:1'];
+ for(const shared of [{...proof,ref:{...ref,u:36}},{...proof,mode:'dict'}]){
+  const imported=W.normalize({...s,weeks:{[week]:{'37:gap:1':{...row,shared}}}},'2026-10-17');
+  assert.equal(W.weekStatus(imported,week).pending,1);
+ }
+});

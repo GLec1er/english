@@ -170,7 +170,7 @@
   const saveWeekly=()=>Store.set('weekly',weekly);
   saveWeekly();
   const mkey = Review.key;
-  const activeMistakes = () => mistakes.filter((r) => r.stage < 3);
+  const activeMistakes = () => mistakes.filter((r) => Review.state(r).stage < 3);
   const mistakeAttentionCount = () => Weekly.attentionCount(weekly,mistakes,todayKey());
   function trackMistake(item, result, event, day=todayKey()) {
     if (!item.ref) return;
@@ -185,8 +185,9 @@
     weekly=Weekly.cancel(weekly,item.ref,event);saveWeekly();
   }
   function reinforcement(item) {
-    const r = item.ref && mistakes.find((r) => mkey(r) === mkey(item.ref));
+    let r = item.ref && mistakes.find((r) => mkey(r) === mkey(item.ref));
     if (!r) return '';
+    r=Review.state(r);
     return `<p class="reinforcement">${r.stage === 3 ? 'Закреплено · три проверки с интервалами.' : `Закрепление ${r.stage} / 3 · следующее повторение ${dateLabel(r.due)}.`}${r.lastReviewDay !== todayKey() && r.due > todayKey() ? ' Ранняя практика не ускоряет интервал.' : ''}</p>`;
   }
   function attachAnswerDispute(container,item,user,onAccept){
@@ -717,9 +718,14 @@
       Store.set('steps', steps);
       Store.set('activity', activity);
     }
+    function scheduleGroup(r){
+      const refs=context.errorGroups&&context.errorGroups[mkey(r.item.ref)];
+      if(!r.ok||!refs)return;
+      mistakes=Review.recordGroup(mistakes,refs,r,todayKey(),r.reviewEvent,{ref:r.item.ref,mode:r.item.t});Store.set('mistakes',mistakes);
+    }
     function acceptResult(r){
       if(r.ok)return false;
-      r.ok=true;r.score=1;undoMistake(r.item,r.reviewEvent);persistAnswer(r,!baseline.includes(r));
+      r.ok=true;r.score=1;undoMistake(r.item,r.reviewEvent);scheduleGroup(r);persistAnswer(r,!baseline.includes(r));
       if(reward&&onDone)onDone(accuracy(),results());
       if(reward&&!tracked){const row=activity.find(e=>e.session===sessionId);if(row){row.correct=results().filter(r=>r.ok).length;Store.set('activity',activity);}}
       updateNav();return true;
@@ -753,7 +759,7 @@
       if (r.score == null) r.score = r.ok ? 1 : 0;
       r.item = it; res[pos] = r;
       r.reviewEvent = sessionId + ':' + pos;
-      trackMistake(it, r, r.reviewEvent);
+      trackMistake(it, r, r.reviewEvent);scheduleGroup(r);
       persistAnswer(r); drawProgress();
       if (tracked && res.filter(Boolean).length === items.length) commitCompleted();
       const draw = () => {
@@ -929,7 +935,7 @@
     </div>`+(state.done?afterDayPlan(day):'');
   }
   function afterDayPlan(day){
-    const plan=Course.planAfter(course,day),topics=Learning.dueTopics(learning,day),errors=Review.due(mistakes,day);
+    const plan=Course.planAfter(course,day),topics=Learning.dueTopics(learning,day),errors=Review.groups(Review.due(mistakes,day));
     if(!plan)return '';
     const u=plan.kind==='unit'?plannedUnit(plan.day):null,closedUnit=course.closed[day];
     return `<section class="card after-day-plan" aria-label="После закрытого дня"><span class="eyebrow">Следующая страница</span><h3>Завтра · ${dateLabel(plan.day,{weekday:'long',day:'numeric',month:'long'})}</h3><p>${u?`Unit ${u.n} · <span lang="en">${esc(u.title)}</span>`:plan.kind==='review'?'Повторение юнитов этой недели. Новую тему закрывать не нужно.':'Все юниты закрыты. Можно возвращаться к темам и собственной речи.'}</p><div class="actions"><a class="btn small" href="#/calendar/${plan.day}">Посмотреть план</a>${closedUnit?`<a class="btn small" href="#/u/${closedUnit}/context">Unit ${closedUnit} · применить в своей речи</a>`:''}</div>${topics.length||errors.length?`<div class="after-day-review"><p>Можно закрепить сегодня — без нового юнита:</p><div class="actions">${topics.length?`<a class="btn small" href="#/retention">Темы на повторение · ${topics.length}</a>`:''}${errors.length?`<a class="btn small" href="#/mistakes">Ошибки на сегодня · ${errors.length}</a>`:''}</div></div>`:'<p class="muted small">Обязательных повторений на сегодня нет.</p>'}</section>`;
@@ -990,10 +996,10 @@
       const u = D.units[n];
       return ['mc', 'fill', 'err', 'tr'].flatMap((t) => available(u, t) ? unitItems(u, t) : []);
     }));
-    const priority = Review.due(mistakes, todayKey()).filter((r) => units.includes(r.u)).map(reviewItem).filter(Boolean);
+    const errorGroups={},priority=Review.groups(Review.due(mistakes,todayKey()).filter(r=>units.includes(r.u))).map(g=>{const item=reviewItem(g.rows[0]);if(item)errorGroups[mkey(item.ref)]=g.rows;return item;}).filter(Boolean);
     const items = Study.reviewSelection(priority.concat(pool));
     session({ title: `Повторение недели · ${weekLabel(day)}`, back: '#/calendar/' + day,
-      items: shuffle(items), context: { kind: 'review', week } });
+      items: shuffle(items), context: { kind: 'review', week, errorGroups } });
   }
 
   function bookCheckpoint(u) {
@@ -1424,10 +1430,10 @@
   function reviewItem(r) {
     const u = D.units[r.u];
     if (!u) return null;
-    if(r.b){let t=r.k==='gap'?['fill','order','dict'][r.stage%3]:r.k;let it=transferItem({t,ref:r});if(t==='order'&&it.data.full.split(' ').length>14)it.t='fill';it.data.review=true;return it;}
+    const stage=Review.state(r).stage,listening=Review.topic(r).endsWith(':listening'),modes=listening?['dict','lgap']:['fill','order'];
+    if(r.b){let t=r.k==='gap'?modes[stage%modes.length]:r.k;let it=transferItem({t,ref:r});if(t==='order'&&it.data.full.split(' ').length>14)it.t='fill';it.data.review=true;return it;}
     prep(u);
-    const modes = ['fill', 'order', 'dict'];
-    let t = r.k === 'gap' ? modes[r.stage % modes.length] : r.k;
+    let t = r.k === 'gap' ? modes[stage % modes.length] : r.k;
     if (t === 'order' && !u.orderIdx.includes(r.i)) t = 'fill';
     const it = makeItem(t, u, r.k, r.i);
     if (it.data) it.data = { ...it.data, review: true };
@@ -1437,16 +1443,18 @@
   function mistakesPage() {
     const stats = Review.summary(mistakes, todayKey());
     const due = Review.due(mistakes, todayKey());
-    const active = activeMistakes().sort((a,b) => a.due.localeCompare(b.due) || b.lapses - a.lapses);
-    const scheduled = active.filter(r=>r.due>todayKey());
+    const active = activeMistakes().sort((a,b) => Review.state(a).due.localeCompare(Review.state(b).due) || b.lapses - a.lapses);
+    const dueGroups=Review.groups(due);
+    const scheduled = Review.groups(active.filter(r=>Review.state(r).due>todayKey()));
     const rows = (list) => list.map((r) => {
-      const item = reviewItem(r), note = item && answerNote(item, { ok: false });
+      const state=Review.state(r),item = reviewItem(r), note = item && answerNote(item, { ok: false });
       const full = item && (item.data.full || item.data.q);
-      return `<article class="error-entry"><div class="error-entry-top"><a href="#/u/${r.u}">Unit ${r.u} · ${esc(D.units[r.u].title)}</a><span>${r.stage === 3 ? 'Закреплено' : r.due <= todayKey() ? 'Пора повторить' : dateLabel(r.due)}</span></div>
+      return `<article class="error-entry"><div class="error-entry-top"><a href="#/u/${r.u}">Unit ${r.u} · ${esc(D.units[r.u].title)}</a><span>${state.stage === 3 ? 'Закреплено' : state.due <= todayKey() ? 'Пора повторить' : dateLabel(state.due)}</span></div>
         <p lang="en">${esc(full || '')}</p>${r.lastAnswer||TYPES[r.lastMode] ? `<p class="muted small">Последняя ошибка: <span lang="en">${esc(r.lastAnswer||'∅')}</span> · ${esc(TYPES[r.lastMode] ? TYPES[r.lastMode].name : 'практика')}</p>` : ''}
-        <div class="error-entry-bottom"><span>Закрепление ${r.stage} / 3</span><span>Ошибок: ${r.lapses}</span></div><label class="error-category">Причина (твоя оценка) <select data-error-key="${esc(mkey(r))}" aria-label="Причина ошибки в Unit ${r.u}">${Object.entries(errorCategories).map(([k,label])=>`<option value="${k}"${r.category===k?' selected':''}>${esc(label)}</option>`).join('')}</select></label>
-        ${note ? `<details class="error-rule"><summary>Вспомнить перевод и правило</summary>${Notes.render(note)}</details>` : ''}${r.stage<3&&TYPES[r.lastMode]?`<div data-journal-appeal="${esc(mkey(r))}"></div>`:''}</article>`;
+        <div class="error-entry-bottom"><span>Закрепление ${state.stage} / 3</span><span>Ошибок: ${r.lapses}</span></div><label class="error-category">Причина (твоя оценка) <select data-error-key="${esc(mkey(r))}" aria-label="Причина ошибки в Unit ${r.u}">${Object.entries(errorCategories).map(([k,label])=>`<option value="${k}"${r.category===k?' selected':''}>${esc(label)}</option>`).join('')}</select></label>
+        ${note ? `<details class="error-rule"><summary>Вспомнить перевод и правило</summary>${Notes.render(note)}</details>` : ''}${state.stage<3&&TYPES[r.lastMode]?`<div data-journal-appeal="${esc(mkey(r))}"></div>`:''}</article>`;
     }).join('');
+    const groupCards=list=>list.map(g=>`<article class="card revision-group"><div class="weekly-error-heading"><b>Unit ${g.unit} · ${esc(D.units[g.unit].title)}</b><span>${g.kind==='listening'?'На слух':'Грамматика'}</span></div><p class="revision-topic-meta">Исходных ошибок: ${g.rows.length} · одна проверка темы</p><details class="revision-examples"><summary>Посмотреть свои примеры и разборы</summary>${rows(g.rows)}</details></article>`).join('');
     app.innerHTML = `<div class="page-narrow review-page">
       <span class="eyebrow" lang="en">The Study Club / Revision desk</span><h1>Работа над ошибками</h1>
       <p class="page-intro">Вернуться к правилу, вспомнить без подсказки, проверить через время.</p>
@@ -1454,15 +1462,15 @@
       <a class="btn small" href="#/weekly">Недельная работа над ошибками →</a>
       ${learnUI.deskCard()}
       <h2 class="review-schedule-title">Интервальные повторения</h2>
-      <div class="review-stats"><div><b>${stats.due}</b><span>повторить сегодня</span></div><div><b>${scheduled.length}</b><span>запланировано позже</span></div><div><b>${stats.mastered}</b><span>полностью закреплено</span></div></div>
+      <div class="review-stats"><div><b>${dueGroups.length}</b><span>тем сегодня</span></div><div><b>${scheduled.length}</b><span>тем позже</span></div><div><b>${stats.mastered}</b><span>примеров закреплено</span></div></div>
       <div class="card review-plan"><h2>${stats.due ? 'Пора вспомнить' : stats.active ? 'Повторения запланированы' : stats.mastered ? 'Сложные места закреплены' : 'Пока без ошибок'}</h2>
-        <p>После ошибки — проверка через день, затем через 3 и 7 дней. Три верных ответа с интервалами закрепляют пример. Новая ошибка возвращает его в начало.</p>
-        ${due.length ? `<button class="btn primary start-due" type="button">Повторить на сегодня · ${Math.min(20,due.length)}</button>` : active.length ? `<p class="muted">Ближайшее повторение — ${dateLabel(active[0].due)}. Можно потренироваться раньше; интервал сохранится.</p>` : '<a class="btn" href="#/">Выбрать юнит →</a>'}
+        <p>Похожие ошибки одного юнита повторяются одной проверкой темы. На слух — отдельно. После ошибки: через день, затем через 3 и 7 дней. Три проверки с интервалами закрепляют примеры. Новая ошибка открывает тему снова.</p>
+        ${due.length ? `<button class="btn primary start-due" type="button">Повторить на сегодня · ${Math.min(20,dueGroups.length)}</button>` : active.length ? `<p class="muted">Ближайшее повторение — ${dateLabel(Review.state(active[0]).due)}. Можно потренироваться раньше; интервал сохранится.</p>` : '<a class="btn" href="#/">Выбрать юнит →</a>'}
         ${active.length ? '<button class="btn ghost start-early" type="button">Свободная практика ошибок</button>' : ''}
       </div>
-      ${due.length ? `<h2>Повторить сегодня · ${due.length}</h2><div class="error-list">${rows(due)}</div>` : ''}
-      ${scheduled.length ? `<details class="scheduled-errors"><summary>Запланировано позже · ${scheduled.length}</summary><p class="muted small">Срок этих повторений ещё не наступил. Они появятся в списке на сегодня в указанную дату. Ранняя практика не ускоряет интервал.</p>${rows(scheduled)}</details>` : ''}
-      ${stats.mastered ? `<details class="mastered-errors"><summary>Закреплённые примеры · ${stats.mastered}</summary>${rows(mistakes.filter(r=>r.stage===3))}</details>` : ''}
+      ${due.length ? `<h2>Повторить сегодня · ${dueGroups.length}</h2><div class="error-list">${groupCards(dueGroups)}</div>` : ''}
+      ${scheduled.length ? `<details class="scheduled-errors"><summary>Запланировано позже · ${scheduled.length}</summary><p class="muted small">Срок этих повторений ещё не наступил. Они появятся в списке на сегодня в указанную дату. Ранняя практика не ускоряет интервал.</p>${groupCards(scheduled)}</details>` : ''}
+      ${stats.mastered ? `<details class="mastered-errors"><summary>Закреплённые примеры · ${stats.mastered}</summary>${rows(mistakes.filter(r=>Review.state(r).stage===3))}</details>` : ''}
     </div>`;
     $$('[data-error-key]').forEach(el=>el.onchange=()=>{mistakes=mistakes.map(r=>mkey(r)===el.dataset.errorKey?{...r,category:el.value}:r);Store.set('mistakes',mistakes);});
     $$('[data-journal-appeal]').forEach(el=>{
@@ -1478,7 +1486,11 @@
         mistakesPage();updateNav();toast('Ложная ошибка отменена. Предыдущие повторения сохранены.');
       });
     });
-    function run(list) { session({title:'Закрепление ошибок',back:'#/mistakes',items:list.slice(0,20).map(reviewItem).filter(Boolean)}); }
+    function run(list) {
+      const groups=Review.groups(list).slice(0,20),items=[],errorGroups={};
+      for(const g of groups){const item=reviewItem(g.rows[0]);if(item){items.push(item);errorGroups[mkey(item.ref)]=g.rows;}}
+      session({title:'Закрепление тем',back:'#/mistakes',items,context:{errorGroups}});
+    }
     const start = $('.start-due'); if(start)start.onclick = () => run(due);
     const early = $('.start-early'); if(early)early.onclick = () => run(active);
   }
@@ -1597,7 +1609,7 @@
     const count=mistakeAttentionCount();
     c.textContent = count || '';
     c.hidden = !count;
-    c.parentElement.title = 'Ошибки, требующие недельного разбора или повторения сейчас. Будущие повторения не входят в счётчик.';
+    c.parentElement.title = 'Темы ошибок, требующие недельного разбора или повторения сейчас. Будущие повторения не входят в счётчик.';
   }
 
   function route() {
@@ -1647,10 +1659,11 @@
   const aiUI=window.EGIUAITutorUI({A:Tutor,Disputes,esc,$,getOptions:apiOptions,setOptions:o=>Store.set('apiSettings',o),getRows:()=>Tutor.normalizeUsage(Store.get('aiUsage',[])),setRows:r=>Store.set('aiUsage',r),today:todayKey,getDisputes:()=>Disputes.normalize(Store.get('aiDisputes',[])),setDisputes:r=>Store.set('aiDisputes',r),getReview:(n,k)=>learning.reviews[n]&&learning.reviews[n][k],saveReview:(n,k,r)=>{learning=Learning.saveReview(learning,n,k,r,todayKey());saveLearning();}});
   const learnUI = window.EGIULearningUI({app,$,$$,esc,L:Learning,getState:()=>learning,setState:s=>{learning=s;saveLearning();},today:todayKey,dateLabel,units:D.units,speak,toast,go,runTopics,wireRecorder,aiUI});
   const weeklyUI=window.EGIUWeeklyUI({W:Weekly,P:window.EGIUWeeklyPractice,app,$,esc,getState:()=>weekly,setState:s=>{weekly=s;saveWeekly();updateNav();},today:todayKey,dateLabel,weekLabel,shift:Study.shift,units:D.units,R,Notes,go,speak,answerNote,
-    nextReview:ref=>{const row=mistakes.find(r=>mkey(r)===mkey(ref));return row&&row.stage<3?row.due:null;},
+    nextReview:rows=>{const keys=new Set(rows.map(r=>mkey(r.ref)));return mistakes.filter(r=>keys.has(mkey(r))&&Review.state(r).stage<3).map(r=>Review.state(r).due).sort()[0]||null;},
     sourceItem:row=>{const ref=row.ref,u=D.units[ref.u],mode=TYPES[row.mode]?row.mode:ref.k==='gap'?'fill':ref.k;return ref.b?transferItem({t:mode,ref}):makeItem(mode,u,ref.k,ref.i);},
     record:(row,it,r,event)=>recordActivity({kind:'practice',session:'weekly:'+Study.weekStart(row.day)+':'+Weekly.key(row.ref),title:`Unit ${row.ref.u} · Ошибки недели`},[{...r,item:{ref:row.ref}}]).id,
     correctActivity:id=>{const e=activity.find(e=>e.id===id);if(e){e.correct=1;Store.set('activity',activity);}},
+    groupClosed:(rows,event,source)=>{mistakes=Review.recordGroup(mistakes,rows.map(r=>r.ref),{ok:true},todayKey(),event,source);Store.set('mistakes',mistakes);updateNav();},
     originalAnswer:(item,r,event)=>{mistakes=Review.record(mistakes,item.ref,{...r,mode:item.t},todayKey(),event);Store.set('mistakes',mistakes);updateNav();},
     undoOriginal:(item,event)=>{mistakes=Review.undo(mistakes,item.ref,event);Store.set('mistakes',mistakes);updateNav();},appeal:attachAnswerDispute,setKeys:fn=>{keyHandler=fn;},dayCelebration,beforePractice:n=>requireBook([n],location.hash,()=>route())});
   window.addEventListener('hashchange', route);
