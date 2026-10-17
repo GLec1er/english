@@ -171,6 +171,7 @@
   saveWeekly();
   const mkey = Review.key;
   const activeMistakes = () => mistakes.filter((r) => r.stage < 3);
+  const mistakeAttentionCount = () => Weekly.attentionCount(weekly,mistakes,todayKey());
   function trackMistake(item, result, event, day=todayKey()) {
     if (!item.ref) return;
     mistakes = Review.record(mistakes, item.ref, { ...result, mode: item.t }, day, event);
@@ -1050,7 +1051,7 @@
         <div class="stats" aria-label="Твой прогресс">
           <div><b>${inBook}<span class="sr-only"> из ${D.list.length}</span></b><span>пройдено в книге</span></div>
           <div><b>${started}</b><span>${plural(started, 'юнит', 'юнита', 'юнитов')} в практике</span></div>
-          <div><b>${activeMistakes().length}</b><span>${plural(activeMistakes().length, 'ошибка', 'ошибки', 'ошибок')} на повтор</span></div>
+          <div><b>${mistakeAttentionCount()}</b><span>${plural(mistakeAttentionCount(), 'ошибка', 'ошибки', 'ошибок')} к разбору</span></div>
         </div>
       </section>
       ${dayCelebration()}
@@ -1075,7 +1076,7 @@
           ${last ? `<a class="aside-link" href="#/u/${current.n}">${icon('book')}<span>Вернуться к Unit ${current.n}</span>${icon('arrow')}</a>` : ''}
           <p class="aside-note">Отмечай пройденные юниты на их страницах — так их будет проще повторять в миксе.</p>
           <a class="aside-link" href="#/mix">${icon('mix')}<span>Повторить пройденное</span>${icon('arrow')}</a>
-          <a class="aside-link" href="#/mistakes">${icon('tr')}<span>Разобрать ошибки</span><small>${activeMistakes().length}</small></a>
+          <a class="aside-link" href="#/mistakes">${icon('tr')}<span>Разобрать ошибки</span><small>${mistakeAttentionCount()}</small></a>
         </aside>
       </div>`;
     const box = $('.sections'), search = $('.search'), note = $('.results-note');
@@ -1437,6 +1438,7 @@
     const stats = Review.summary(mistakes, todayKey());
     const due = Review.due(mistakes, todayKey());
     const active = activeMistakes().sort((a,b) => a.due.localeCompare(b.due) || b.lapses - a.lapses);
+    const scheduled = active.filter(r=>r.due>todayKey());
     const rows = (list) => list.map((r) => {
       const item = reviewItem(r), note = item && answerNote(item, { ok: false });
       const full = item && (item.data.full || item.data.q);
@@ -1451,13 +1453,15 @@
       ${weeklyUI.banner()}
       <a class="btn small" href="#/weekly">Недельная работа над ошибками →</a>
       ${learnUI.deskCard()}
-      <div class="review-stats"><div><b>${stats.due}</b><span>на сегодня</span></div><div><b>${stats.active}</b><span>закрепляем</span></div><div><b>${stats.mastered}</b><span>закреплено</span></div></div>
+      <h2 class="review-schedule-title">Интервальные повторения</h2>
+      <div class="review-stats"><div><b>${stats.due}</b><span>повторить сегодня</span></div><div><b>${scheduled.length}</b><span>запланировано позже</span></div><div><b>${stats.mastered}</b><span>полностью закреплено</span></div></div>
       <div class="card review-plan"><h2>${stats.due ? 'Пора вспомнить' : stats.active ? 'Повторения запланированы' : stats.mastered ? 'Сложные места закреплены' : 'Пока без ошибок'}</h2>
         <p>После ошибки — проверка через день, затем через 3 и 7 дней. Три верных ответа с интервалами закрепляют пример. Новая ошибка возвращает его в начало.</p>
         ${due.length ? `<button class="btn primary start-due" type="button">Повторить на сегодня · ${Math.min(20,due.length)}</button>` : active.length ? `<p class="muted">Ближайшее повторение — ${dateLabel(active[0].due)}. Можно потренироваться раньше; интервал сохранится.</p>` : '<a class="btn" href="#/">Выбрать юнит →</a>'}
         ${active.length ? '<button class="btn ghost start-early" type="button">Свободная практика ошибок</button>' : ''}
       </div>
-      ${active.length ? `<h2>В работе · ${active.length}</h2><div class="error-list">${rows(active)}</div>` : ''}
+      ${due.length ? `<h2>Повторить сегодня · ${due.length}</h2><div class="error-list">${rows(due)}</div>` : ''}
+      ${scheduled.length ? `<details class="scheduled-errors"><summary>Запланировано позже · ${scheduled.length}</summary><p class="muted small">Срок этих повторений ещё не наступил. Они появятся в списке на сегодня в указанную дату. Ранняя практика не ускоряет интервал.</p>${rows(scheduled)}</details>` : ''}
       ${stats.mastered ? `<details class="mastered-errors"><summary>Закреплённые примеры · ${stats.mastered}</summary>${rows(mistakes.filter(r=>r.stage===3))}</details>` : ''}
     </div>`;
     $$('[data-error-key]').forEach(el=>el.onchange=()=>{mistakes=mistakes.map(r=>mkey(r)===el.dataset.errorKey?{...r,category:el.value}:r);Store.set('mistakes',mistakes);});
@@ -1590,8 +1594,10 @@
   // ---------- маршрутизация ----------
   function updateNav() {
     const c = $('#mcount');
-    c.textContent = activeMistakes().length || '';
-    c.hidden = !activeMistakes().length;
+    const count=mistakeAttentionCount();
+    c.textContent = count || '';
+    c.hidden = !count;
+    c.parentElement.title = 'Ошибки, требующие недельного разбора или повторения сейчас. Будущие повторения не входят в счётчик.';
   }
 
   function route() {
@@ -1640,7 +1646,8 @@
   const apiOptions=()=>{const o=Store.get('apiSettings',{});return {model:Tutor.models[o.model]?o.model:Tutor.DEFAULT_MODEL,limit:Number.isFinite(o.limit)&&o.limit>=.1&&o.limit<=50?o.limit:5};};
   const aiUI=window.EGIUAITutorUI({A:Tutor,Disputes,esc,$,getOptions:apiOptions,setOptions:o=>Store.set('apiSettings',o),getRows:()=>Tutor.normalizeUsage(Store.get('aiUsage',[])),setRows:r=>Store.set('aiUsage',r),today:todayKey,getDisputes:()=>Disputes.normalize(Store.get('aiDisputes',[])),setDisputes:r=>Store.set('aiDisputes',r),getReview:(n,k)=>learning.reviews[n]&&learning.reviews[n][k],saveReview:(n,k,r)=>{learning=Learning.saveReview(learning,n,k,r,todayKey());saveLearning();}});
   const learnUI = window.EGIULearningUI({app,$,$$,esc,L:Learning,getState:()=>learning,setState:s=>{learning=s;saveLearning();},today:todayKey,dateLabel,units:D.units,speak,toast,go,runTopics,wireRecorder,aiUI});
-  const weeklyUI=window.EGIUWeeklyUI({W:Weekly,P:window.EGIUWeeklyPractice,app,$,esc,getState:()=>weekly,setState:s=>{weekly=s;saveWeekly();},today:todayKey,dateLabel,weekLabel,shift:Study.shift,units:D.units,R,Notes,go,speak,answerNote,
+  const weeklyUI=window.EGIUWeeklyUI({W:Weekly,P:window.EGIUWeeklyPractice,app,$,esc,getState:()=>weekly,setState:s=>{weekly=s;saveWeekly();updateNav();},today:todayKey,dateLabel,weekLabel,shift:Study.shift,units:D.units,R,Notes,go,speak,answerNote,
+    nextReview:ref=>{const row=mistakes.find(r=>mkey(r)===mkey(ref));return row&&row.stage<3?row.due:null;},
     sourceItem:row=>{const ref=row.ref,u=D.units[ref.u],mode=TYPES[row.mode]?row.mode:ref.k==='gap'?'fill':ref.k;return ref.b?transferItem({t:mode,ref}):makeItem(mode,u,ref.k,ref.i);},
     record:(row,it,r,event)=>recordActivity({kind:'practice',session:'weekly:'+Study.weekStart(row.day)+':'+Weekly.key(row.ref),title:`Unit ${row.ref.u} · Ошибки недели`},[{...r,item:{ref:row.ref}}]).id,
     correctActivity:id=>{const e=activity.find(e=>e.id===id);if(e){e.correct=1;Store.set('activity',activity);}},

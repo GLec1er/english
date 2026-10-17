@@ -75,3 +75,37 @@ test('an imported error cannot select a renderer incompatible with its source ki
  const imported=W.normalize({...s,weeks:{'2026-10-12':{'37:gap:1':{...r,mode:'tr'}}}},'2026-10-19');
  assert.equal(imported.weeks['2026-10-12']['37:gap:1'].mode,'fill');
 });
+test('finishing weekly work removes its attention badge without deleting future spaced reviews',()=>{
+ assert.equal(typeof W.attentionCount,'function','actionable error counter is missing');
+ const R=require('../js/review.js'),day='2026-10-17';
+ const reviews=R.normalize([{...ref,stage:1,due:'2026-10-20',lastReviewDay:day}],day);
+ let s=initial();s=W.read(s,'2026-10-12','37:gap:1');
+ for(const phase of ['original','first'])s=W.answer(s,'2026-10-12','37:gap:1',phase,{ok:true,user:'correct'},phase);
+ assert.equal(W.attentionCount(s,reviews,day),1);
+ const before=JSON.stringify(reviews);
+ s=W.answer(s,'2026-10-12','37:gap:1','second',{ok:true,user:'correct'},'second');
+ assert.equal(W.attentionCount(s,reviews,day),0);
+ assert.equal(W.attentionCount(s,reviews,'2026-10-20'),1);
+ assert.equal(JSON.stringify(reviews),before);
+ assert.equal(R.summary(reviews,day).active,1);
+});
+test('one example due in multiple review queues is counted once, including old unfinished weeks',()=>{
+ assert.equal(typeof W.attentionCount,'function','actionable error counter is missing');
+ const R=require('../js/review.js'),day='2026-10-19';
+ const reviews=R.normalize([{...ref,due:day},{u:36,k:'gap',i:0,due:day},{u:38,k:'gap',i:0,stage:2,due:'2026-10-22'}],day);
+ const s=W.capture(initial(),ref,bad,day,'new-week');
+ assert.equal(W.attentionCount(s,reviews,day),2);
+ assert.equal(W.attentionCount(complete(s),reviews,day),2);
+});
+test('cancelled errors, future imported work and mastered reviews do not create attention today',()=>{
+ assert.equal(typeof W.attentionCount,'function','actionable error counter is missing');
+ const R=require('../js/review.js'),day='2026-10-17';
+ let s=W.cancel(initial(),ref,'bad-1');
+ s=W.capture(s,ref,bad,'2026-10-18','tomorrow');
+ s=W.capture(s,{u:36,k:'gap',i:0},bad,'2026-10-19','future-week');
+ const reviews=R.normalize([{...ref,stage:3,due:day}],day);
+ assert.equal(W.attentionCount(s,reviews,day),0);
+ assert.equal(W.attentionCount(s,reviews,'2026-10-18'),1);
+ assert.equal(W.attentionCount(s,reviews,'2026-10-19'),2);
+ assert.equal(W.attentionCount(s,reviews,'invalid'),0);
+});

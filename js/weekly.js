@@ -49,6 +49,12 @@
  }
  function weekStatus(s,week){const rows=Object.values(s.weeks[week]||{}),completed=rows.filter(done).length;return {week,total:rows.length,done:completed,pending:rows.length-completed,steps:rows.reduce((n,r)=>n+(r.read?1:0)+phases.filter(p=>r.answers[p]?.ok).length,0)};}
  function status(s,day){const current=Study.weekStart(day),debts=Object.keys(s.weeks).filter(w=>w<current).sort().map(w=>weekStatus(s,w)).filter(w=>w.pending);return {blocked:debts.length>0,oldest:debts[0]?.week||null,debts,current:weekStatus(s,current)};}
+ function attentionCount(s,reviews,day){
+  if(!Study.date(day))return 0;
+  const current=Study.weekStart(day),refs=new Set(Review.due(reviews,day).map(key));
+  for(const [week,rows]of Object.entries(s.weeks))if(week<=current)for(const row of Object.values(rows))if(row.day<=day&&!done(row))refs.add(key(row.ref));
+  return refs.size;
+ }
  function canStart(s,course,day,unit){return !status(s,day).blocked||Object.entries(course.closed).some(([d,n])=>d<=day&&n===unit);}
  function seed(s,mistakes,activity,exams,steps,day){
   if(s.seeded)return s;
@@ -65,6 +71,6 @@
   }
   return {...out,seeded:true};
  }
- const api={normalize,capture,read,answer,cancel,status,weekStatus,canStart,seed,done,key,phases};
+ const api={normalize,capture,read,answer,cancel,status,weekStatus,attentionCount,canStart,seed,done,key,phases};
  if(node)module.exports=api;else root.EGIUWeekly=api;
 })(typeof window==='undefined'?globalThis:window);
