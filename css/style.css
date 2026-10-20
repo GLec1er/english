@@ -2317,3 +2317,5 @@ audio {
 .revision-examples .error-entry {margin-top:18px}
 .revision-example p,.revision-group b {overflow-wrap:anywhere}
 .weekly-error .revision-topic-meta {margin-top:8px}
+
+.exam-manual-note {padding:14px 16px;margin:18px 0;border-left:3px solid var(--brass);background:var(--bg);color:var(--muted);font-size:13px;line-height:1.7}
