@@ -901,7 +901,7 @@
     const completed=dayCompletion();
     if(!completed)return '';
     const day=completed.day,u=D.units[completed.unit],rank=Course.rank(course,day).current;
-    const checks=completed.weekend?['Повторение завершено']:u?[unitCompletion(u).complete?'Все упражнения выполнены':'Юнит закрыт',Exam.status(exams,u.n).passed?'Экзамен сдан':null].filter(Boolean):[];
+    const checks=completed.weekend?['Повторение завершено']:u?[unitCompletion(u).complete?'Все упражнения выполнены':'Юнит закрыт',Exam.status(exams,u.n).passed?'Экзамен зачтён':null].filter(Boolean):[];
     return `<section class="day-celebration" role="status" aria-label="Сегодняшний день полностью закрыт">
       <div class="completion-seal" aria-hidden="true"><span lang="en">The Study Club</span>${icon('check')}<b lang="en">Day<br>complete</b><small>${dateLabel(day,{day:'numeric',month:'short'})}</small></div>
       <div class="completion-message"><span class="eyebrow">${dateLabel(day,{weekday:'long',day:'numeric',month:'long'})} · день закрыт</span><h2>Сегодня всё<br><em>выполнено.</em></h2><p>${u?`Unit ${u.n} · <span lang="en">${esc(u.title)}</span>`:'Повторение недели завершено.'}<br>Хорошая работа. Можно закрыть тетрадь и отдохнуть.</p><ul class="completion-checks">${checks.map(label=>`<li>${icon('check')}${label}</li>`).join('')}</ul></div>
@@ -930,7 +930,7 @@
         : `<a class="plan-unit" href="#/u/${u.n}"><span>Unit <b>${String(u.n).padStart(2,'0')}</b></span><strong lang="en">${esc(u.title)}</strong>${icon(state.done?'check':'arrow')}</a>
         <div class="goal-heading"><b>${state.completed.filter((t) => goal.required.includes(t)).length} / ${goal.required.length} упражнений</b><span>+20 XP за день</span></div>
         ${goalList(goal, state)}
-        <p class="plan-help">Все упражнения → экзамен от 80% → закрытый день. Юниты идут по порядку, по одному в будний день.</p>
+        <p class="plan-help">Все упражнения → зачтённый экзамен → закрытый день. Юниты идут по порядку, по одному в будний день.</p>
         ${!bookReady(u.n) ? `<a class="btn primary" href="#/u/${u.n}">Сначала — отметить книгу ${icon('book')}</a>` : allComplete && !exam.passed && !state.done ? `<a class="btn primary" href="#/u/${u.n}/exam">${exam.draft ? 'Продолжить экзамен' : 'Сдать экзамен'} ${icon('arrow')}</a>` : canClaim ? '<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>' : `<a class="btn primary today-start" href="#/u/${u.n}${next && !state.done ? '/' + next : ''}">${state.done ? 'Продолжить практику' : next ? 'Следующее занятие' : 'Открыть юнит'} ${icon('arrow')}</a>`}`}
     </div>`+(state.done?afterDayPlan(day):'');
   }
@@ -1218,7 +1218,7 @@
     const ready = bookReady(u.n)&&unitCompletion(u).complete, status = Exam.status(exams,u.n);
     return `<section class="exam-card ${ready ? 'is-ready' : ''}" aria-label="Итоговый экзамен">
       <div class="exam-seal" aria-hidden="true" lang="en">Study<br>Club<span>${status.passed ? '✓' : 'E'}</span></div>
-      <div><span class="eyebrow" lang="en">Unit ${u.n} / Final examination</span><h3>${status.passed ? 'Экзамен сдан' : 'Итоговый экзамен'}</h3>
+      <div><span class="eyebrow" lang="en">Unit ${u.n} / Final examination</span><h3>${status.last?.manualPass ? 'Экзамен засчитан вручную' : status.passed ? 'Экзамен сдан' : 'Итоговый экзамен'}</h3>
         <p>${ready ? '13 разных примеров · смешанные форматы · от 80% для сдачи. Разбор после последнего ответа.' : bookReady(u.n)?'Откроется после всех упражнений юнита. Сдача экзамена закрывает текущий юнит курса и будний день.':'Сначала подтверди книгу, затем выполни упражнения. После этого откроется итоговая проверка.'}</p>
         ${status.best !== null ? `<p class="exam-best">Лучший результат: ${status.best}% · попыток ${status.attempts}</p>` : ''}
         ${ready ? `<a class="btn primary small" href="#/u/${u.n}/exam">${status.draft ? `Продолжить · ${status.answered}/13` : status.last ? 'Результат и пересдача' : 'Открыть экзамен'} ${icon('arrow')}</a>` : `<span class="muted small">Упражнения: ${unitCompletion(u).done} / ${unitCompletion(u).total}</span>`}
@@ -1230,16 +1230,19 @@
       exams = Exam.finish(exams,u.n,todayKey()); saveExams();
     }
     const attempt = Exam.status(exams,u.n).last;
-    if (!attempt || attempt.day !== todayKey()) return;
+    if (!attempt) return;
+    // Recover a manual credit saved before its course closure, including an older attempt.
+    if(attempt.manualPass?.day===todayKey()){ensureGoal();closeGoal(u.n);}
+    if (attempt.day !== todayKey()) return;
     learning=Learning.recordApplication(learning,u.n,attempt.items.filter(it=>it.ref.b).map(it=>({key:Learning.key(it.ref),ok:attempt.answers[Exam.key(it)].ok}))); saveLearning();
     if (activity.some(e => e.session === attempt.id && e.kind === 'exam')) {
-      if (Object.values(attempt.answers).filter(r => r.ok).length / 13 >= 0.8) closeGoal(u.n);
+      if (Exam.passed(attempt)) closeGoal(u.n);
       return;
     }
     const results = attempt.items.map(d => ({...attempt.answers[Exam.key(d)],item:restoreExamItem(d)}));
     // Recover an interrupted final save, using stable IDs for the attempt and errors.
     results.forEach(r => trackMistake(r.item,r,attempt.id + ':' + Exam.key(r.item),attempt.day));
-    recordActivity({kind:'exam',unit:u.n,passed:results.filter(r=>r.ok).length/13>=0.8,session:attempt.id,title:`Unit ${u.n} · Экзамен`},results);
+    recordActivity({kind:'exam',unit:u.n,passed:Exam.passed(attempt),session:attempt.id,title:`Unit ${u.n} · Экзамен`},results);
     updateNav();
   }
   function examPage(u) {
@@ -1266,19 +1269,28 @@
         examPage(u);wireClaim();updateNav();toast('Ответ зачтён. Результат этой попытки пересчитан.');
       });
     });
+    const credit=$('.credit-exam');
+    if(credit)credit.onclick=()=>{
+      if(!requireLesson(u)||!unitCompletion(u).complete)return;
+      const next=Exam.credit(exams,u.n,status.last.id,todayKey());if(next===exams)return;
+      exams=next;saveExams();examPage(u);wireClaim();updateNav();
+      toast(course.closed[todayKey()]===u.n?'Экзамен засчитан вручную · день закрыт':'Ручной зачёт экзамена сохранён');
+    };
     const start = $('.start-exam');
     if(start)start.onclick=()=>{if(!requireLesson(u))return;if(!Exam.status(exams,u.n).draft){exams=Exam.start(exams,u.n,examItems(u),'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2),todayKey());saveExams();const a=Exam.status(exams,u.n).draft;if(a&&a.items[0].ref.b){learning=Learning.useForm(learning,u.n,a.items[0].ref.v,a.id);saveLearning();}}examRun(u);};
   }
   function examResult(u,attempt) {
     const results=attempt.items.map(d=>({...attempt.answers[Exam.key(d)],item:restoreExamItem(d)}));
-    const correct=results.filter(r=>r.ok).length, passed=correct/13>=0.8;
+    const correct=results.filter(r=>r.ok).length, passed=Exam.passed(attempt),manual=!!attempt.manualPass;
     const breakdown={};results.forEach(r=>{const b=breakdown[r.item.t]||(breakdown[r.item.t]={correct:0,total:0});b.total++;if(r.ok)b.correct++;});
     const goal=ensureGoal(), claimed=Course.closedUnits(course,todayKey()).has(u.n);
     const claimable=goal&&goal.unit===u.n&&!dayState(todayKey()).done&&!claimed&&Exam.canClose(exams,u.n,true);
-    return `${course.closed[todayKey()]===u.n?dayCelebration():''}<section class="card exam-result"><span class="eyebrow" lang="en">${passed?'Pass':'Try again'}</span><div class="exam-score"><b>${Math.round(correct/13*100)}%</b><span>${correct} / 13 верно</span></div>
-      <h2>${passed?'Экзамен сдан':'Пока не сдан'}</h2><p>${passed ? claimed ? 'Юнит закрыт. Можно продолжать закрепление и возвращаться к сложным местам.' : 'Проверка пройдена. Юнит засчитывается по порядку курса, один в будний день.' : 'Нужно минимум 11 верных ответов. Разбери сложные места, потренируйся и попробуй ещё раз.'}</p>
+    return `${course.closed[todayKey()]===u.n?dayCelebration():''}<section class="card exam-result"><span class="eyebrow" lang="en">${manual?'Manual credit':passed?'Pass':'Try again'}</span><div class="exam-score"><b>${Math.round(correct/13*100)}%</b><span>${correct} / 13 верно</span></div>
+      <h2>${manual?'Экзамен засчитан вручную':passed?'Экзамен сдан':'Пока не сдан'}</h2><p>${passed ? claimed ? 'Юнит закрыт. Можно продолжать закрепление и возвращаться к сложным местам.' : 'Проверка пройдена. Юнит засчитывается по порядку курса, один в будний день.' : 'Нужно минимум 11 верных ответов. Разбери сложные места, потренируйся и попробуй ещё раз.'}</p>
+      ${manual?`<p class="exam-manual-note">Ручной зачёт · ${dateLabel(attempt.manualPass.day)}. Процент отражает исходные ответы; ошибки остаются для закрепления.</p>`:''}
       <div class="exam-breakdown">${Object.entries(breakdown).map(([t,b])=>`<div><span>${TYPES[t].name}</span><b>${b.correct}/${b.total}</b></div>`).join('')}</div>
-      <div class="actions">${claimable?'<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>':''}<button class="btn ${passed?'':'primary'} start-exam" type="button">${passed?'Пересдать для себя':'Новая попытка'}</button><a class="btn ghost" href="#/mistakes">Закрепить ошибки</a></div>
+      ${!passed?'<p class="muted small">Можно засчитать завершённый экзамен вручную. Балл и ответы сохранятся, юнит и день закроются по правилам курса.</p>':''}
+      <div class="actions">${claimable?'<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>':''}${!passed?'<button class="btn primary credit-exam" type="button">Засчитать экзамен</button>':''}<button class="btn start-exam" type="button">${passed?'Пересдать для себя':'Новая попытка'}</button><a class="btn ghost" href="#/mistakes">Закрепить ошибки</a></div>
       ${course.closed[todayKey()]===u.n?`<p class="exam-day-complete">${icon('check')} День закрыт · ранг <span lang="en">${Course.rank(course,todayKey()).current.en}</span><a href="#/calendar">Дневник →</a></p>`:''}
     </section><h2>Разбор всех ответов</h2><p class="muted small">Ошибки сохранены в журнале. Первое повторение — через день, затем через 3 и 7 дней.</p>
       <div class="exam-analysis">${results.map((r,i)=>`<details class="exam-answer ${r.ok?'is-correct':'is-wrong'}"${!r.ok?' open':''}><summary><span>${i+1}. ${TYPES[r.item.t].name}</span><b>${r.correction==='spelling'?'Вариант написания принят':r.accepted?'Зачтено после разбора':r.ok?'Верно':'Разобрать'}</b></summary><p class="exam-user">Твой ответ: <span lang="en">${esc(r.user || '∅')}</span></p><p class="answer" lang="en">${esc(correctText(r.item))}</p>${Notes.render(answerNote(r.item,r))}${!r.ok?`<div data-exam-appeal="${i}"></div>`:''}</details>`).join('')}</div>`;

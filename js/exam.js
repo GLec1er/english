@@ -26,7 +26,8 @@
     if(items.length!==13 || new Set(items.map(key)).size!==13) return null;
     const answers={};
     items.forEach(it=>{const a=raw.answers && raw.answers[key(it)];if(a&&typeof a.ok==='boolean')answers[key(it)]={ok:a.ok,user:typeof a.user==='string'?a.user.slice(0,5000):'',...(a.ok&&a.accepted===true?{accepted:true}:{}),...(a.ok&&a.correction==='spelling'?{correction:'spelling'}:{})};});
-    return {id:raw.id,day:raw.day,items,answers};
+    const manualPass=Object.keys(answers).length===13&&Study.date(raw.manualPass?.day)&&raw.manualPass.day>=raw.day?{day:raw.manualPass.day}:null;
+    return {id:raw.id,day:raw.day,items,answers,...(manualPass?{manualPass}:{})};
   }
   function normalize(raw) {
     const state={version:1,units:{}};
@@ -35,15 +36,17 @@
       const ids=new Set(),history=[];
       (Array.isArray(v.history)?v.history:[]).forEach(a=>{a=cleanAttempt(a,u);if(a&&Object.keys(a.answers).length===13&&!ids.has(a.id)){ids.add(a.id);history.push(a);}});
       const draft=cleanAttempt(v.draft,u);
+      if(draft)delete draft.manualPass;
       state.units[u]={history,draft:draft&&!ids.has(draft.id)?draft:null};
     });
     return state;
   }
+  const passed=attempt=>!!attempt&&Object.keys(attempt.answers).length===13&&(Object.values(attempt.answers).filter(r=>r.ok).length/13>=0.8||!!(Study.date(attempt.manualPass?.day)&&attempt.manualPass.day>=attempt.day));
   function status(state,unit) {
     const row=state.units && state.units[unit] || {history:[],draft:null};
     const grades=row.history.map(a=>Object.values(a.answers).filter(r=>r.ok).length);
     const last=row.history[row.history.length-1] || null;
-    return {draft:row.draft,answered:row.draft?Object.keys(row.draft.answers).length:0,attempts:row.history.length,passed:grades.some(n=>n/13>=0.8),best:grades.length?Math.round(Math.max(...grades)/13*100):null,last};
+    return {draft:row.draft,answered:row.draft?Object.keys(row.draft.answers).length:0,attempts:row.history.length,passed:row.history.some(passed),best:grades.length?Math.round(Math.max(...grades)/13*100):null,last};
   }
   function start(state,unit,items,id,day) {
     state=normalize(state);const draft=cleanAttempt({id,day,items,answers:{}},unit);if(!draft)return state;
@@ -62,12 +65,17 @@
     return {...state,units:{...state.units,[unit]:{history:row.history.concat({...a,day:Study.date(day)?day:a.day}),draft:null}}};
   }
   const canClose=(state,unit,complete)=>complete===true && status(state,unit).passed;
+  function credit(state,unit,id,day){
+    const row=state.units&&state.units[unit],attempt=row&&row.history.find(a=>a.id===id),clean=cleanAttempt(attempt,unit);
+    if(!row||row.draft||!clean||Object.keys(clean.answers).length!==13||!Study.date(day)||day<attempt.day||passed(attempt))return state;
+    return {...state,units:{...state.units,[unit]:{...row,history:row.history.map(a=>a.id===id?{...a,manualPass:{day}}:a)}}};
+  }
   function accept(state,unit,id,itemKey,user,reason){
     const row=state.units&&state.units[unit],attempt=row&&row.history.find(a=>a.id===id),answer=attempt&&attempt.answers[itemKey];
     if(!answer||answer.ok||answer.user!==user)return state;
     const amended={...attempt,answers:{...attempt.answers,[itemKey]:{...answer,ok:true,accepted:true,...(reason==='spelling'?{correction:'spelling'}:{})}}};
     return {...state,units:{...state.units,[unit]:{...row,history:row.history.map(a=>a.id===id?amended:a)}}};
   }
-  const api={key,select,normalize,start,answer,finish,status,canClose,accept};
+  const api={key,select,normalize,start,answer,finish,status,canClose,accept,credit,passed};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.EGIUExam=api;
 })(typeof window==='undefined'?globalThis:window);
