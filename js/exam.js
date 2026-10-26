@@ -27,7 +27,7 @@
     const answers={};
     items.forEach(it=>{const a=raw.answers && raw.answers[key(it)];if(a&&typeof a.ok==='boolean')answers[key(it)]={ok:a.ok,user:typeof a.user==='string'?a.user.slice(0,5000):'',...(a.ok&&a.accepted===true?{accepted:true}:{}),...(a.ok&&a.correction==='spelling'?{correction:'spelling'}:{})};});
     const manualPass=Object.keys(answers).length===13&&Study.date(raw.manualPass?.day)&&raw.manualPass.day>=raw.day?{day:raw.manualPass.day}:null;
-    return {id:raw.id,day:raw.day,items,answers,...(manualPass?{manualPass}:{})};
+    return {id:raw.id,day:raw.day,items,answers,...(manualPass?{manualPass}:{}),...(Study.date(raw.startedDay)&&raw.startedDay<=raw.day?{startedDay:raw.startedDay}:{}),...(Study.date(raw.lessonDay)&&!Study.isWeekend(raw.lessonDay)&&raw.lessonDay<=raw.day?{lessonDay:raw.lessonDay}:{})};
   }
   function normalize(raw) {
     const state={version:1,units:{}};
@@ -48,8 +48,8 @@
     const last=row.history[row.history.length-1] || null;
     return {draft:row.draft,answered:row.draft?Object.keys(row.draft.answers).length:0,attempts:row.history.length,passed:row.history.some(passed),best:grades.length?Math.round(Math.max(...grades)/13*100):null,last};
   }
-  function start(state,unit,items,id,day) {
-    state=normalize(state);const draft=cleanAttempt({id,day,items,answers:{}},unit);if(!draft)return state;
+  function start(state,unit,items,id,day,lessonDay=day) {
+    state=normalize(state);const draft=cleanAttempt({id,day,startedDay:day,lessonDay,items,answers:{}},unit);if(!draft)return state;
     const row=state.units[unit] || {history:[],draft:null};
     if(row.draft || row.history.some(a=>a.id===id))return state;
     return {...state,units:{...state.units,[unit]:{...row,draft}}};
@@ -59,10 +59,10 @@
     if(!a || a.answers[itemKey] || !a.items.some(it=>key(it)===itemKey) || typeof result.ok!=='boolean')return state;
     return {...state,units:{...state.units,[unit]:{...row,draft:{...a,answers:{...a.answers,[itemKey]:{ok:result.ok,user:String(result.user || '').slice(0,5000)}}}}}};
   }
-  function finish(state,unit,day) {
+  function finish(state,unit,day,lessonDay) {
     const row=state.units && state.units[unit],a=row && row.draft;
     if(!a || Object.keys(a.answers).length!==13)return state;
-    return {...state,units:{...state.units,[unit]:{history:row.history.concat({...a,day:Study.date(day)?day:a.day}),draft:null}}};
+    return {...state,units:{...state.units,[unit]:{history:row.history.concat({...a,startedDay:a.startedDay||a.day,day:Study.date(day)?day:a.day,...(Study.date(lessonDay)&&!Study.isWeekend(lessonDay)&&lessonDay<=(Study.date(day)?day:a.day)?{lessonDay}: {})}),draft:null}}};
   }
   const canClose=(state,unit,complete)=>complete===true && status(state,unit).passed;
   function credit(state,unit,id,day){

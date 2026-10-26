@@ -26,7 +26,7 @@
   }
   function saveReview(s,n,kind,r,day){if(!unit(n))return s;return normalize({...s,reviews:{...s.reviews,[n]:{...s.reviews[n],[kind]:{...r,day}}}},day);}
   function saveDraft(s,n,patch,day){if(!unit(n))return s;return normalize({...s,drafts:{...s.drafts,[n]:{...s.drafts[n],...patch,updated:day}}},day);}
-  function seedTopics(s,closed,day){const topics={...s.topics};Object.entries(object(closed)).forEach(([d,n])=>{if(unit(n)&&Study.date(d)&&d<=day&&!topics[n])topics[n]={unit:n,stage:0,due:Study.shift(d,1),lastDay:null,lastEvent:''};});return {...s,topics};}
+  function seedTopics(s,closed,day,completedOn={}){const topics={...s.topics};Object.entries(object(closed)).forEach(([d,n])=>{if(unit(n)&&Study.date(d)&&d<=day&&!topics[n])topics[n]={unit:n,stage:0,due:Study.shift(Study.date(completedOn[n])&&completedOn[n]<=day?completedOn[n]:d,1),lastDay:null,lastEvent:''};});return {...s,topics};}
   const dueTopics=(s,day)=>Object.values(s.topics).filter(r=>r.due<=day).sort((a,b)=>a.due.localeCompare(b.due)||a.unit-b.unit);
   function reviewed(row,ok,day,event){
     if(!row||!Study.date(day)||row.lastDay===day||(event&&row.lastEvent===event))return row;

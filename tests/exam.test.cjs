@@ -110,3 +110,8 @@ test('an imported draft cannot carry manual credit into its eventual submission'
  const normalized=E.normalize(draft);assert.equal(normalized.units[36].draft.manualPass,undefined);
  assert.equal(E.status(E.finish(normalized,36,'2026-10-20'),36).passed,false);
 });
+test('a resumed exam preserves the original study and start dates alongside its completion date',()=>{
+ let s=E.start({},36,bank(),'bound','2026-10-24','2026-10-23');bank().forEach(it=>s=E.answer(s,36,E.key(it),{ok:true,user:'saved'}));
+ s=E.normalize(JSON.parse(JSON.stringify(s)));s=E.finish(s,36,'2026-10-26');s=E.normalize(JSON.parse(JSON.stringify(s)));
+ assert.equal(E.status(s,36).last.lessonDay,'2026-10-23');assert.equal(E.status(s,36).last.startedDay,'2026-10-24');assert.equal(E.status(s,36).last.day,'2026-10-26');
+});
