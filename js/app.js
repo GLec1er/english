@@ -108,14 +108,24 @@
   }
   const saveCourse = () => Store.set('course', course);
   saveCourse();
-  let learning = Learning.seedTopics(Learning.normalize(Store.get('learning', {}), todayKey()), course.closed, todayKey());
-  const saveLearning = () => Store.set('learning', learning);
-  saveLearning();
   const Club = window.EGIUClub;
   const club = Club.normalize(Store.get('club', null), todayKey());
   if (!storedCourse && todayKey() >= course.since && !Study.isWeekend(todayKey())) delete club.goals[todayKey()];
   const saveClub = () => Store.set('club', club);
+  const ExamSchedule=window.EGIUExamSchedule;
+  const examScheduleState=()=>({course,exams,club,dailyPlan,activity});
+  const examDayRepair=ExamSchedule.repairToday(examScheduleState(),todayKey());
+  if(examDayRepair.changes.length){
+    course=examDayRepair.course;saveCourse();
+    const moved=examDayRepair.changes[0].unit;
+    if(club.goals[todayKey()]?.unit===moved)delete club.goals[todayKey()];
+    if(dailyPlan[todayKey()]===moved)delete dailyPlan[todayKey()];
+    Store.set('dailyPlan',dailyPlan);
+  }
   saveClub();
+  let learning = Learning.seedTopics(Learning.normalize(Store.get('learning', {}), todayKey()), course.closed, todayKey(),ExamSchedule.reviewDays(exams));
+  const saveLearning = () => Store.set('learning', learning);
+  saveLearning();
   const dayState = (day) => {
     const state = Club.dayStatus(activity, day, club, course);
     const goal = club.goals[day];
@@ -138,11 +148,9 @@
   }
   function closeGoal(unit) {
     if (!bookReady(unit) || Weekly.status(weekly,todayKey()).blocked) return;
-    const goal = club.goals[todayKey()];
-    if (!goal) return;
-    course = Course.close(course, todayKey(), unit, Exam.canClose(exams, unit, unitCompletion(D.units[unit]).complete), goal.unit);
+    course = ExamSchedule.close(examScheduleState(),unit,todayKey(),Exam.canClose(exams,unit,unitCompletion(D.units[unit]).complete));
     saveCourse();
-    learning = Learning.seedTopics(learning, course.closed, todayKey()); saveLearning();
+    learning = Learning.seedTopics(learning, course.closed, todayKey(),ExamSchedule.reviewDays(exams)); saveLearning();
   }
   function recordActivity(context, results = []) {
     if (context.unit) ensureGoal();
@@ -1227,7 +1235,7 @@
   function finalizeExam(u) {
     const draft = Exam.status(exams,u.n).draft;
     if (draft && Object.keys(draft.answers).length === 13) {
-      exams = Exam.finish(exams,u.n,todayKey()); saveExams();
+      exams = Exam.finish(exams,u.n,todayKey(),ExamSchedule.resolve(examScheduleState(),u.n,todayKey(),draft)); saveExams();
     }
     const attempt = Exam.status(exams,u.n).last;
     if (!attempt) return;
@@ -1274,23 +1282,26 @@
       if(!requireLesson(u)||!unitCompletion(u).complete)return;
       const next=Exam.credit(exams,u.n,status.last.id,todayKey());if(next===exams)return;
       exams=next;saveExams();examPage(u);wireClaim();updateNav();
-      toast(course.closed[todayKey()]===u.n?'Экзамен засчитан вручную · день закрыт':'Ручной зачёт экзамена сохранён');
+      toast(course.closed[todayKey()]===u.n?'Экзамен засчитан вручную · день закрыт':Course.closedUnits(course,todayKey()).has(u.n)?'Экзамен засчитан за учебный день юнита':'Ручной зачёт экзамена сохранён');
     };
     const start = $('.start-exam');
-    if(start)start.onclick=()=>{if(!requireLesson(u))return;if(!Exam.status(exams,u.n).draft){exams=Exam.start(exams,u.n,examItems(u),'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2),todayKey());saveExams();const a=Exam.status(exams,u.n).draft;if(a&&a.items[0].ref.b){learning=Learning.useForm(learning,u.n,a.items[0].ref.v,a.id);saveLearning();}}examRun(u);};
+    if(start)start.onclick=()=>{if(!requireLesson(u))return;if(!Exam.status(exams,u.n).draft){exams=Exam.start(exams,u.n,examItems(u),'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2),todayKey(),ExamSchedule.resolve(examScheduleState(),u.n,todayKey()));saveExams();const a=Exam.status(exams,u.n).draft;if(a&&a.items[0].ref.b){learning=Learning.useForm(learning,u.n,a.items[0].ref.v,a.id);saveLearning();}}examRun(u);};
   }
   function examResult(u,attempt) {
     const results=attempt.items.map(d=>({...attempt.answers[Exam.key(d)],item:restoreExamItem(d)}));
     const correct=results.filter(r=>r.ok).length, passed=Exam.passed(attempt),manual=!!attempt.manualPass;
     const breakdown={};results.forEach(r=>{const b=breakdown[r.item.t]||(breakdown[r.item.t]={correct:0,total:0});b.total++;if(r.ok)b.correct++;});
     const goal=ensureGoal(), claimed=Course.closedUnits(course,todayKey()).has(u.n);
+    const creditDay=ExamSchedule.resolve(examScheduleState(),u.n,todayKey(),attempt),delayed=creditDay&&creditDay<todayKey(),nextUnit=Course.next(course,todayKey());
     const claimable=goal&&goal.unit===u.n&&!dayState(todayKey()).done&&!claimed&&Exam.canClose(exams,u.n,true);
     return `${course.closed[todayKey()]===u.n?dayCelebration():''}<section class="card exam-result"><span class="eyebrow" lang="en">${manual?'Manual credit':passed?'Pass':'Try again'}</span><div class="exam-score"><b>${Math.round(correct/13*100)}%</b><span>${correct} / 13 верно</span></div>
       <h2>${manual?'Экзамен засчитан вручную':passed?'Экзамен сдан':'Пока не сдан'}</h2><p>${passed ? claimed ? 'Юнит закрыт. Можно продолжать закрепление и возвращаться к сложным местам.' : 'Проверка пройдена. Юнит засчитывается по порядку курса, один в будний день.' : 'Нужно минимум 11 верных ответов. Разбери сложные места, потренируйся и попробуй ещё раз.'}</p>
+      ${delayed?`<p class="exam-manual-note">Учебный день юнита — <b>${dateLabel(creditDay)}</b>. Экзамен завершён ${dateLabel(attempt.day)}. ${claimed?'Этот зачёт не занимает сегодняшний день.':'При сдаче зачёт пойдёт за этот учебный день.'}</p>`:''}
+      ${claimed&&delayed&&nextUnit&&!course.closed[todayKey()]?`<p><a class="btn primary" href="#/u/${nextUnit}">Юнит на сегодня · Unit ${nextUnit} →</a></p>`:''}
       ${manual?`<p class="exam-manual-note">Ручной зачёт · ${dateLabel(attempt.manualPass.day)}. Процент отражает исходные ответы; ошибки остаются для закрепления.</p>`:''}
       <div class="exam-breakdown">${Object.entries(breakdown).map(([t,b])=>`<div><span>${TYPES[t].name}</span><b>${b.correct}/${b.total}</b></div>`).join('')}</div>
       ${!passed?'<p class="muted small">Можно засчитать завершённый экзамен вручную. Балл и ответы сохранятся, юнит и день закроются по правилам курса.</p>':''}
-      <div class="actions">${claimable?'<button class="btn primary claim-unit" type="button">Закрыть юнит сегодня</button>':''}${!passed?'<button class="btn primary credit-exam" type="button">Засчитать экзамен</button>':''}<button class="btn start-exam" type="button">${passed?'Пересдать для себя':'Новая попытка'}</button><a class="btn ghost" href="#/mistakes">Закрепить ошибки</a></div>
+      <div class="actions">${claimable?`<button class="btn primary claim-unit" type="button">${delayed?'Зачесть за '+dateLabel(creditDay):'Закрыть юнит сегодня'}</button>`:''}${!passed?'<button class="btn primary credit-exam" type="button">Засчитать экзамен</button>':''}<button class="btn start-exam" type="button">${passed?'Пересдать для себя':'Новая попытка'}</button><a class="btn ghost" href="#/mistakes">Закрепить ошибки</a></div>
       ${course.closed[todayKey()]===u.n?`<p class="exam-day-complete">${icon('check')} День закрыт · ранг <span lang="en">${Course.rank(course,todayKey()).current.en}</span><a href="#/calendar">Дневник →</a></p>`:''}
     </section><h2>Разбор всех ответов</h2><p class="muted small">Ошибки сохранены в журнале. Первое повторение — через день, затем через 3 и 7 дней.</p>
       <div class="exam-analysis">${results.map((r,i)=>`<details class="exam-answer ${r.ok?'is-correct':'is-wrong'}"${!r.ok?' open':''}><summary><span>${i+1}. ${TYPES[r.item.t].name}</span><b>${r.correction==='spelling'?'Вариант написания принят':r.accepted?'Зачтено после разбора':r.ok?'Верно':'Разобрать'}</b></summary><p class="exam-user">Твой ответ: <span lang="en">${esc(r.user || '∅')}</span></p><p class="answer" lang="en">${esc(correctText(r.item))}</p>${Notes.render(answerNote(r.item,r))}${!r.ok?`<div data-exam-appeal="${i}"></div>`:''}</details>`).join('')}</div>`;
@@ -1680,4 +1691,5 @@
     undoOriginal:(item,event)=>{mistakes=Review.undo(mistakes,item.ref,event);Store.set('mistakes',mistakes);updateNav();},appeal:attachAnswerDispute,setKeys:fn=>{keyHandler=fn;},dayCelebration,beforePractice:n=>requireBook([n],location.hash,()=>route())});
   window.addEventListener('hashchange', route);
   route();
+  if(examDayRepair.changes.length){const change=examDayRepair.changes[0];toast(`Unit ${change.unit} зачтён за ${dateLabel(change.to)}. Сегодня доступен следующий юнит.`);}
 })();
